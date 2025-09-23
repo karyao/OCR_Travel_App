@@ -8,7 +8,7 @@ import java.text.Normalizer
  * - Removes tone marks if [noToneMarks] = true
  * - Lowercases output if [lowercase] = true
  */
-fun toPinyin(han: String, lowercase: Boolean = true, noToneMarks: Boolean = true): String {
+fun toPinyin(han: String, lowercase: Boolean = true, noToneMarks: Boolean = false): String {
     val hanLatin = Transliterator.getInstance("Han-Latin")
     var out = hanLatin.transliterate(han) // 上海火车站 -> Shàng hǎi huǒ chē zhàn
 

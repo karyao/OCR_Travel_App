@@ -9,6 +9,7 @@ import kotlinx.coroutines.launch
 
 /** Handles saving PlaceSnap to the database (business logic). */
 class CaptureViewModel(private val repo: TravelRepository) : ViewModel() {
+
     fun save(ch: String, py: String, lat: Double?, lng: Double?, addr: String?, path: String) {
         viewModelScope.launch {
             repo.saveSnap(
@@ -22,6 +23,21 @@ class CaptureViewModel(private val repo: TravelRepository) : ViewModel() {
                 )
             )
         }
+    }
+
+    /** Save, then return the new total row count (for debugging). */
+    suspend fun saveAndCount(
+        ch: String, py: String, lat: Double?, lng: Double?, addr: String?, path: String
+    ): Int {
+        repo.saveSnap(
+            PlaceSnap(
+                imagePath = path,
+                nameCn = ch,
+                namePinyin = py,
+                lat = lat, longitude = lng, address = addr
+            )
+        )
+        return repo.count()
     }
 }
 

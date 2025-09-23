@@ -29,9 +29,11 @@ class VH(v: View) : RecyclerView.ViewHolder(v) {
     private val cn = v.findViewById<TextView>(R.id.tvCn)
     private val py = v.findViewById<TextView>(R.id.tvPinyin)
     private val ad = v.findViewById<TextView>(R.id.tvAddress)
+    private val tr = v.findViewById<TextView>(R.id.tvTranslation)
     fun bind(s: PlaceSnap) {
         cn.text = s.nameCn
         py.text = s.namePinyin
         ad.text = s.address ?: ""
+        tr.text = s.translation
     }
 }

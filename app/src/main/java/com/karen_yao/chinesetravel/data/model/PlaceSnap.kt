@@ -14,6 +14,7 @@ data class PlaceSnap (
     val lat: Double?,
     val longitude: Double?,
     val address: String?,
+    val translation: String,
     val createdAt: Long = System.currentTimeMillis()
 )
 

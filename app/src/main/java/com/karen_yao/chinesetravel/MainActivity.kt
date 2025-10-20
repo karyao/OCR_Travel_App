@@ -3,23 +3,24 @@ package com.karen_yao.chinesetravel
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
-import com.karen_yao.chinesetravel.data.db.AppDatabase
-import com.karen_yao.chinesetravel.data.repo.TravelRepository
-import com.karen_yao.chinesetravel.ui.home.HomeFragment
+import com.karen_yao.chinesetravel.core.database.AppDatabase
+import com.karen_yao.chinesetravel.core.repository.TravelRepository
+import com.karen_yao.chinesetravel.features.home.ui.HomeFragment
 
 /**
  * MainActivity hosts a single container for fragments.
  * It creates one TravelRepository (Room DB) and exposes it to fragments.
  */
 class MainActivity : AppCompatActivity() {
-    lateinit var repo: TravelRepository
+    
+    lateinit var repository: TravelRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         // Build Room database + Repository
-        repo = TravelRepository(AppDatabase.get(this))
+        repository = TravelRepository(AppDatabase.getDatabase(this))
 
         if (savedInstanceState == null) {
             supportFragmentManager.beginTransaction()
@@ -29,5 +30,9 @@ class MainActivity : AppCompatActivity() {
     }
 }
 
-/** Convenience extension so fragments can access the shared repository. */
-fun Fragment.repo(): TravelRepository = (requireActivity() as MainActivity).repo
+/**
+ * Convenience extension so fragments can access the shared repository.
+ * @deprecated Use Fragment.repo() extension instead
+ */
+@Deprecated("Use Fragment.repo() extension instead")
+fun Fragment.repo(): TravelRepository = (requireActivity() as MainActivity).repository

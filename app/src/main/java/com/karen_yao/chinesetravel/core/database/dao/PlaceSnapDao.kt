@@ -1,13 +1,13 @@
-package com.karen_yao.chinesetravel.data.db
+package com.karen_yao.chinesetravel.core.database.dao
 
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
-import com.karen_yao.chinesetravel.data.model.PlaceSnap
+import com.karen_yao.chinesetravel.core.database.entities.PlaceSnap
 import kotlinx.coroutines.flow.Flow
 
 /**
- * DAO = Data Access Object for PlaceSnap table.
+ * Data Access Object for PlaceSnap table.
  * Room generates the implementation from these annotations.
  */
 @Dao

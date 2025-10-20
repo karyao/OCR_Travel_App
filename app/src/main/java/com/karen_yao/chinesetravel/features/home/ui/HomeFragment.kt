@@ -43,10 +43,17 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         recyclerView.adapter = adapter
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
 
+        // Update snap count in header
+        val snapCountText = view.findViewById<android.widget.TextView>(R.id.tvSnapCount)
+
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.snaps.collect { list ->
                 Log.d("HomeFragment", "snaps size=${list.size}")
                 adapter.submitList(list)
+                
+                // Update header with snap count
+                val count = list.size
+                snapCountText.text = if (count == 1) "1 snap" else "$count snaps"
             }
         }
     }

@@ -1,8 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
-    <style name="Base.Theme.ChineseTravel" parent="Theme.Material3.DayNight.NoActionBar">
-
+    <!-- Base application theme with beige and red colors -->
+    <style name="Theme.ChineseTravel" parent="Theme.Material3.DayNight">
+        <!-- Primary brand color -->
+        <item name="colorPrimary">@color/red_primary</item>
+        <item name="colorPrimaryVariant">@color/red_primary_dark</item>
+        <item name="colorOnPrimary">@color/white</item>
+        
+        <!-- Secondary brand color -->
+        <item name="colorSecondary">@color/accent_gold</item>
+        <item name="colorSecondaryVariant">@color/accent_light_red</item>
+        <item name="colorOnSecondary">@color/text_primary</item>
+        
+        <!-- Background colors -->
+        <item name="android:colorBackground">@color/background_beige</item>
+        <item name="colorSurface">@color/background_card</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        
+        <!-- Status bar -->
+        <item name="android:statusBarColor">@color/red_primary</item>
+        <item name="android:windowLightStatusBar">false</item>
+        
+        <!-- Navigation bar -->
+        <item name="android:navigationBarColor">@color/background_beige</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        
+        <!-- Text colors -->
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+        
+        <!-- Button styles -->
+        <item name="materialButtonStyle">@style/Widget.ChineseTravel.Button</item>
+        <item name="materialButtonOutlinedStyle">@style/Widget.ChineseTravel.Button.Outlined</item>
     </style>
-
-    <style name="Theme.ChineseTravel" parent="Base.Theme.ChineseTravel" />
+    
+    <!-- Custom button style -->
+    <style name="Widget.ChineseTravel.Button" parent="Widget.Material3.Button">
+        <item name="backgroundTint">@color/red_primary</item>
+        <item name="android:textColor">@color/white</item>
+        <item name="cornerRadius">12dp</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    
+    <!-- Outlined button style -->
+    <style name="Widget.ChineseTravel.Button.Outlined" parent="Widget.Material3.Button">
+        <item name="android:background">@drawable/button_beige_outline</item>
+        <item name="android:textColor">@color/red_primary</item>
+        <item name="cornerRadius">12dp</item>
+        <item name="android:textSize">16sp</item>
+    </style>
+    
 </resources>

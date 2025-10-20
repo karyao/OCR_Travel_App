@@ -19,7 +19,7 @@
         android:allowBackup="true"
         android:label="Chinese Travel"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Material3.DayNight">
+        android:theme="@style/Theme.ChineseTravel">
         <activity
             android:name=".MainActivity"
             android:exported="true">

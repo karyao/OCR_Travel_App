@@ -1,5 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
+    <!-- Primary Colors -->
+    <color name="red_primary">#D32F2F</color>
+    <color name="red_primary_dark">#B71C1C</color>
+    <color name="red_primary_light">#FFCDD2</color>
+    
+    <!-- Background Colors -->
+    <color name="background_beige">#F5F5DC</color>
+    <color name="background_light">#FEFEFE</color>
+    <color name="background_card">#FFFFFF</color>
+    
+    <!-- Text Colors -->
+    <color name="text_primary">#2C2C2C</color>
+    <color name="text_secondary">#666666</color>
+    <color name="text_light">#999999</color>
+    <color name="white">#FFFFFF</color>
+    
+    <!-- Accent Colors -->
+    <color name="accent_gold">#FFD700</color>
+    <color name="accent_light_red">#FFEBEE</color>
+    
+    <!-- Divider Colors -->
+    <color name="divider_light">#E0E0E0</color>
+    <color name="divider_medium">#BDBDBD</color>
+    
+    <!-- Status Colors -->
+    <color name="success_green">#4CAF50</color>
+    <color name="warning_orange">#FF9800</color>
+    <color name="error_red">#F44336</color>
 </resources>

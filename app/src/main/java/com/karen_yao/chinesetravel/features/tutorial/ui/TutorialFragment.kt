@@ -10,6 +10,7 @@ import androidx.fragment.app.Fragment
 import com.karen_yao.chinesetravel.R
 import com.karen_yao.chinesetravel.features.home.ui.HomeFragment
 import com.karen_yao.chinesetravel.features.capture.ui.CaptureFragment
+import com.karen_yao.chinesetravel.features.welcome.ui.WelcomeFragment
 import java.io.File
 
 /**
@@ -53,8 +54,27 @@ class TutorialFragment : Fragment(R.layout.fragment_tutorial) {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        setupHeader(view)
         setupTutorial(view)
         setupNavigation(view)
+    }
+    
+    private fun setupHeader(view: View) {
+        val headerLayout = view.findViewById<View>(R.id.headerLayout)
+        val backButton = headerLayout.findViewById<Button>(R.id.btnBack)
+        val titleText = headerLayout.findViewById<android.widget.TextView>(R.id.tvHeaderTitle)
+        val rightText = headerLayout.findViewById<android.widget.TextView>(R.id.tvHeaderRight)
+        
+        // Set title and hide right text
+        titleText.text = "📚 How to Use Chinese Travel"
+        rightText.visibility = android.view.View.GONE
+        
+        // Set up back button
+        backButton.setOnClickListener {
+            parentFragmentManager.beginTransaction()
+                .replace(R.id.container, WelcomeFragment())
+                .commit()
+        }
     }
 
     private fun setupTutorial(view: View) {
@@ -118,12 +138,6 @@ class TutorialFragment : Fragment(R.layout.fragment_tutorial) {
                 .commit()
         }
 
-        view.findViewById<Button>(R.id.btnSkipTutorial).setOnClickListener {
-            // Navigate directly to HomeFragment
-            parentFragmentManager.beginTransaction()
-                .replace(R.id.container, HomeFragment())
-                .commit()
-        }
 
     }
 

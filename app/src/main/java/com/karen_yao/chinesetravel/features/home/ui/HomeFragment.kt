@@ -10,6 +10,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.karen_yao.chinesetravel.R
 import com.karen_yao.chinesetravel.features.capture.ui.CaptureFragment
+import com.karen_yao.chinesetravel.features.welcome.ui.WelcomeFragment
 import com.karen_yao.chinesetravel.shared.extensions.repo
 import com.karen_yao.chinesetravel.shared.utils.TestDataUtils
 import kotlinx.coroutines.launch
@@ -34,6 +35,8 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         setupRecyclerView(view)
         setupFloatingActionButton(view)
         setupTestButton(view)
+        setupBackButton(view)
+        setupClearButton(view)
         testImageForLocation(requireContext())
     }
 
@@ -43,17 +46,11 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         recyclerView.adapter = adapter
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
 
-        // Update snap count in header
-        val snapCountText = view.findViewById<android.widget.TextView>(R.id.tvSnapCount)
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.snaps.collect { list ->
                 Log.d("HomeFragment", "snaps size=${list.size}")
                 adapter.submitList(list)
-                
-                // Update header with snap count
-                val count = list.size
-                snapCountText.text = if (count == 1) "1 snap" else "$count snaps"
             }
         }
     }
@@ -117,5 +114,71 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         }
 
         inputStream.close()
+    }
+    
+    private fun setupBackButton(view: View) {
+        // Set up the common header
+        val headerLayout = view.findViewById<View>(R.id.headerLayout)
+        val backButton = headerLayout.findViewById<Button>(R.id.btnBack)
+        val titleText = headerLayout.findViewById<android.widget.TextView>(R.id.tvHeaderTitle)
+        val rightText = headerLayout.findViewById<android.widget.TextView>(R.id.tvHeaderRight)
+        
+        // Set title and show snap count
+        titleText.text = "📚 Your Travel Collection"
+        rightText.visibility = android.view.View.VISIBLE
+        
+        // Set up back button
+        backButton.setOnClickListener {
+            parentFragmentManager.beginTransaction()
+                .replace(R.id.container, WelcomeFragment())
+                .commit()
+        }
+        
+        // Update snap count in the header
+        val snapCountText = rightText
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.snaps.collect { list ->
+                val count = list.size
+                snapCountText.text = if (count == 1) "1 snap" else "$count snaps"
+            }
+        }
+    }
+    
+    private fun setupClearButton(view: View) {
+        // Set up the clear button that's already in the layout
+        val clearButton = view.findViewById<Button>(R.id.btnClear)
+        clearButton?.setOnClickListener {
+            showClearConfirmation()
+        }
+    }
+    
+    private fun showClearConfirmation() {
+        android.app.AlertDialog.Builder(requireContext())
+            .setTitle("Clear All Snaps")
+            .setMessage("Are you sure you want to delete all captured snaps? This action cannot be undone.")
+            .setPositiveButton("Clear All") { _, _ ->
+                clearAllSnaps()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+    
+    private fun clearAllSnaps() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                repo().clearAllSnaps()
+                android.widget.Toast.makeText(
+                    requireContext(),
+                    "All snaps cleared!",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+            } catch (e: Exception) {
+                android.widget.Toast.makeText(
+                    requireContext(),
+                    "Error clearing snaps: ${e.message}",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
     }
 }

@@ -23,4 +23,9 @@ class TravelRepository(private val database: AppDatabase) {
      * Get the total count of saved snaps.
      */
     suspend fun getSnapCount() = database.placeSnapDao().count()
+    
+    /**
+     * Clear all snaps from the database.
+     */
+    suspend fun clearAllSnaps() = database.placeSnapDao().clearAll()
 }

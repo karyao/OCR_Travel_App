@@ -22,4 +22,8 @@ interface PlaceSnapDao {
     /** Debug/utility: count total rows in the table. */
     @Query("SELECT COUNT(*) FROM PlaceSnap")
     suspend fun count(): Int
+    
+    /** Clear all snaps from the database. */
+    @Query("DELETE FROM PlaceSnap")
+    suspend fun clearAll()
 }

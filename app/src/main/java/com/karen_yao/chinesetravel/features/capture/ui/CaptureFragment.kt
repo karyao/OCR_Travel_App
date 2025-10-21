@@ -56,9 +56,26 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        
+
+        setupHeader(view)
         askPermissions { startCamera(view.findViewById(R.id.previewView)) }
         setupButtons(view)
+    }
+    
+    private fun setupHeader(view: View) {
+        val headerLayout = view.findViewById<View>(R.id.headerLayout)
+        val backButton = headerLayout.findViewById<Button>(R.id.btnBack)
+        val titleText = headerLayout.findViewById<android.widget.TextView>(R.id.tvHeaderTitle)
+        val rightText = headerLayout.findViewById<android.widget.TextView>(R.id.tvHeaderRight)
+        
+        // Set title and hide right text
+        titleText.text = "📸 Capture Chinese Text"
+        rightText.visibility = android.view.View.GONE
+        
+        // Set up back button
+        backButton.setOnClickListener {
+            requireActivity().onBackPressedDispatcher.onBackPressed()
+        }
     }
     
     private fun setupButtons(view: View) {

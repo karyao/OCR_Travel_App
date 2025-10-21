@@ -23,9 +23,9 @@ import android.widget.Button
  * Provides navigation to capture functionality.
  */
 class HomeFragment : Fragment(R.layout.fragment_home) {
-    
-    private val viewModel by lazy {
-        ViewModelProvider(this, HomeViewModelFactory(repo()))[HomeViewModel::class.java]
+
+    private val viewModel by lazy { 
+        ViewModelProvider(this, HomeViewModelFactory(repo()))[HomeViewModel::class.java] 
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -36,7 +36,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         setupTestButton(view)
         testImageForLocation(requireContext())
     }
-    
+
     private fun setupRecyclerView(view: View) {
         val recyclerView = view.findViewById<RecyclerView>(R.id.recycler)
         val adapter = SnapsAdapter()
@@ -57,7 +57,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             }
         }
     }
-    
+
     private fun setupFloatingActionButton(view: View) {
         view.findViewById<FloatingActionButton>(R.id.fabCapture).setOnClickListener {
             parentFragmentManager.beginTransaction()
@@ -66,7 +66,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
                 .commit()
         }
     }
-    
+
     private fun setupTestButton(view: View) {
         // Add a test button for development/testing purposes
         val testButton = view.findViewById<Button>(R.id.btnTest) ?: return
@@ -75,17 +75,21 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             runTestExport()
         }
     }
-    
+
     private fun runTestExport() {
         // Show immediate feedback
         Log.d("HomeFragment", "Starting test export...")
-        
+
         // Run the test export
         TestDataUtils.exportAndTestImages(requireContext(), repo())
-        
+
         // Show a toast to indicate test is running
-        android.widget.Toast.makeText(requireContext(), "Test export started! Check logs for results.", android.widget.Toast.LENGTH_LONG).show()
-        
+        android.widget.Toast.makeText(
+            requireContext(),
+            "Test export started! Check logs for results.",
+            android.widget.Toast.LENGTH_LONG
+        ).show()
+
         // Refresh the RecyclerView to show any new test data
         viewLifecycleOwner.lifecycleScope.launch {
             // Wait a moment for the test to complete, then refresh
@@ -93,7 +97,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             // The RecyclerView will automatically update via the ViewModel's Flow
         }
     }
-    
+
     private fun testImageForLocation(context: Context) {
         val inputStream = context.assets.open("IMG_3849.JPG")
         val exif = ExifInterface(inputStream)

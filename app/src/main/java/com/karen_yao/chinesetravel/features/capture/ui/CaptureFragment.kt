@@ -66,9 +66,6 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
         view.findViewById<Button>(R.id.btnGallery).setOnClickListener {
             pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
         }
-        view.findViewById<Button>(R.id.btnBack).setOnClickListener {
-            requireActivity().onBackPressedDispatcher.onBackPressed()
-        }
     }
 
     private fun askPermissions(onGranted: () -> Unit) {

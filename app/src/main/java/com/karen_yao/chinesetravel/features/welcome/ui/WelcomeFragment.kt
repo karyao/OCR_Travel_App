@@ -6,6 +6,7 @@ import android.widget.Button
 import androidx.fragment.app.Fragment
 import com.karen_yao.chinesetravel.R
 import com.karen_yao.chinesetravel.features.home.ui.HomeFragment
+import com.karen_yao.chinesetravel.features.tutorial.ui.TutorialFragment
 
 /**
  * Welcome screen fragment with app introduction and navigation.
@@ -38,8 +39,9 @@ class WelcomeFragment : Fragment(R.layout.fragment_welcome) {
     }
     
     private fun showLearnMore() {
-        // For now, just navigate to home
-        // You can expand this to show a features screen later
-        navigateToHome()
+        // Navigate to tutorial to show users how to use the app
+        parentFragmentManager.beginTransaction()
+            .replace(R.id.container, TutorialFragment())
+            .commit()
     }
 }

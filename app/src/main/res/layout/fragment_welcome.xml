@@ -209,15 +209,20 @@
                 android:elevation="4dp" />
 
             <!-- Learn More Button -->
-            <Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnLearnMore"
+                style="?attr/materialButtonOutlinedStyle"
                 android:layout_width="match_parent"
-                android:layout_height="48dp"
+                android:layout_height="56dp"
                 android:text="Learn More"
+                android:textColor="@color/white"
                 android:textSize="16sp"
-                android:textColor="@color/red_primary"
-                android:background="@drawable/button_beige_outline"
-                android:elevation="2dp" />
+                android:textAllCaps="false"
+                android:backgroundTint="@color/background_beige"
+                app:strokeColor="@color/red_primary"
+                app:strokeWidth="2dp"
+                app:iconGravity="textStart" />
+
 
         </LinearLayout>
 

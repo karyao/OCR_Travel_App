@@ -26,6 +26,7 @@ import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
 import com.karen_yao.chinesetravel.R
 import com.karen_yao.chinesetravel.features.capture.camera.CameraManager
 import com.karen_yao.chinesetravel.features.capture.camera.ImageProcessor
+import com.karen_yao.chinesetravel.features.textselection.ui.TextSelectionFragment
 import com.karen_yao.chinesetravel.shared.extensions.repo
 import com.karen_yao.chinesetravel.shared.utils.PinyinUtils
 import com.karen_yao.chinesetravel.shared.utils.TranslationUtils
@@ -145,28 +146,20 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
 
     private fun processImageWithOCR(image: InputImage, file: File, source: String) {
         Toast.makeText(requireContext(), "Running OCR ($source)...", Toast.LENGTH_SHORT).show()
-        
+
         val recognizer = TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
         recognizer.process(image)
             .addOnSuccessListener { visionText ->
                 val rawText = visionText.text ?: ""
-                val chineseText = extractBestChineseLine(rawText)
-                val pinyin = if (chineseText.isNotBlank()) PinyinUtils.toPinyin(chineseText) else ""
-                val translation = if (chineseText.isNotBlank()) TranslationUtils.translateChineseToEnglish(chineseText) else "No translation"
-
-                lifecycleScope.launchWhenStarted {
-                    val location = imageProcessor.extractLocationFromFile(file)
-                    val address = location?.let { (lat, lng) -> 
-                        reverseGeocode(lat, lng) 
-                    } ?: "Unknown location"
-
-                    val totalCount = viewModel.saveAndCount(
-                        chineseText, pinyin, location?.first, location?.second, 
-                        address, file.absolutePath, translation
-                    )
-
-                    Toast.makeText(requireContext(), "Saved. Total rows: $totalCount", Toast.LENGTH_SHORT).show()
-                    requireActivity().onBackPressedDispatcher.onBackPressed()
+                val chineseLines = extractAllChineseLines(rawText)
+                
+                if (chineseLines.size > 1) {
+                    // Multiple Chinese lines detected - show selection screen
+                    showTextSelectionScreen(chineseLines, file.absolutePath)
+                } else {
+                    // Single line or no Chinese text - process directly
+                    val chineseText = chineseLines.firstOrNull() ?: ""
+                    processSelectedText(chineseText, file)
                 }
             }
             .addOnFailureListener { exception ->
@@ -174,10 +167,50 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
             }
     }
 
+    private fun extractAllChineseLines(allText: String): List<String> {
+        return allText.lines()
+            .filter { line -> 
+                line.trim().isNotEmpty() &&
+                line.any { it.toString().matches(Regex("[\\p{IsHan}]")) }
+            }
+            .map { it.trim() }
+    }
+
     private fun extractBestChineseLine(allText: String): String =
-        allText.lines().firstOrNull { line -> 
-            line.any { it.toString().matches(Regex("[\\p{IsHan}]")) } 
-        }?.trim().orEmpty()
+        extractAllChineseLines(allText).firstOrNull() ?: ""
+
+    private fun showTextSelectionScreen(chineseLines: List<String>, imagePath: String) {
+        val textSelectionFragment = TextSelectionFragment.newInstance(
+            detectedTexts = chineseLines,
+            imagePath = imagePath,
+            selectedText = ""
+        )
+        
+        parentFragmentManager.beginTransaction()
+            .replace(R.id.container, textSelectionFragment)
+            .addToBackStack(null)
+            .commit()
+    }
+
+    private fun processSelectedText(chineseText: String, file: File) {
+        val pinyin = if (chineseText.isNotBlank()) PinyinUtils.toPinyin(chineseText) else ""
+        val translation = if (chineseText.isNotBlank()) TranslationUtils.translateChineseToEnglish(chineseText) else "No translation"
+
+        lifecycleScope.launchWhenStarted {
+            val location = imageProcessor.extractLocationFromFile(file)
+            val address = location?.let { (lat, lng) ->
+                reverseGeocode(lat, lng)
+            } ?: "Unknown location"
+
+            val totalCount = viewModel.saveAndCount(
+                chineseText, pinyin, location?.first, location?.second,
+                address, file.absolutePath, translation
+            )
+
+            Toast.makeText(requireContext(), "Saved. Total rows: $totalCount", Toast.LENGTH_SHORT).show()
+            requireActivity().onBackPressedDispatcher.onBackPressed()
+        }
+    }
 
     private suspend fun reverseGeocode(lat: Double, lng: Double): String? = withContext(Dispatchers.IO) {
         try {

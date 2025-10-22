@@ -28,4 +28,9 @@ class TravelRepository(private val database: AppDatabase) {
      * Clear all snaps from the database.
      */
     suspend fun clearAllSnaps() = database.placeSnapDao().clearAll()
+    
+    /**
+     * Delete a specific snap from the database.
+     */
+    suspend fun deleteSnap(snap: PlaceSnap) = database.placeSnapDao().delete(snap)
 }

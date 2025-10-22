@@ -95,8 +95,6 @@ class TextSelectionFragment : Fragment(R.layout.fragment_text_selection) {
         val adapter = TextOptionAdapter(detectedTexts) { index ->
             selectedTextIndex = index
             selectedText = detectedTexts[index]
-            // Update the confirm button state
-            updateConfirmButton()
         }
         
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
@@ -122,11 +120,11 @@ class TextSelectionFragment : Fragment(R.layout.fragment_text_selection) {
 
         // Initially disable confirm button
         confirmButton.isEnabled = false
-    }
-    
-    private fun updateConfirmButton() {
-        val confirmButton = view?.findViewById<Button>(R.id.btnConfirmSelection)
-        confirmButton?.isEnabled = selectedTextIndex >= 0
+        
+        // Enable confirm button when text is selected
+        if (selectedTextIndex >= 0) {
+            confirmButton.isEnabled = true
+        }
     }
 
     private fun navigateToHome() {
@@ -165,14 +163,11 @@ class TextOptionAdapter(
             selectedView.visibility = if (isSelected) android.view.View.VISIBLE else android.view.View.GONE
             
             itemView.setOnClickListener {
-                // Only update if this item is not already selected
-                if (selectedIndex != bindingAdapterPosition) {
-                    val oldIndex = selectedIndex
-                    selectedIndex = bindingAdapterPosition
-                    notifyItemChanged(oldIndex)
-                    notifyItemChanged(selectedIndex)
-                    onItemClick(selectedIndex)
-                }
+                val oldIndex = selectedIndex
+                selectedIndex = adapterPosition
+                notifyItemChanged(oldIndex)
+                notifyItemChanged(selectedIndex)
+                onItemClick(selectedIndex)
             }
         }
     }

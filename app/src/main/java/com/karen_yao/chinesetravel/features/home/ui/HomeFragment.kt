@@ -195,28 +195,16 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
                 Log.d("HomeFragment", "Chinese lines found: $chineseLines")
                 
                 if (chineseLines.isNotEmpty()) {
-                    // Use enhanced ranking to prioritize restaurant names
-                    val imageProcessor = com.karen_yao.chinesetravel.features.capture.camera.ImageProcessor()
-                    val rankedTexts = imageProcessor.rankRestaurantNames(chineseLines)
-                    
-                    Log.d("HomeFragment", "=== ENHANCED RANKING ===")
-                    rankedTexts.forEach { ranked ->
-                        Log.d("HomeFragment", "  '${ranked.text}' (score: ${ranked.score})")
-                    }
-                    
-                    // Show success message with ranking info
-                    val bestScore = rankedTexts.firstOrNull()?.score ?: 0f
+                    // Show success message
                     android.widget.Toast.makeText(
                         requireContext(),
-                        "Found ${chineseLines.size} Chinese lines (best: ${rankedTexts.firstOrNull()?.text} - score: $bestScore)",
-                        android.widget.Toast.LENGTH_LONG
+                        "Found ${chineseLines.size} Chinese text lines",
+                        android.widget.Toast.LENGTH_SHORT
                     ).show()
                     
-                    // Navigate to text selection fragment with ALL lines in ranked order
-                    val allLinesInRankedOrder = rankedTexts.map { it.text } + 
-                        chineseLines.filter { line -> !rankedTexts.any { it.text == line } }
+                    // Navigate to text selection fragment (drawing interface)
                     val textSelectionFragment = com.karen_yao.chinesetravel.features.textselection.ui.TextSelectionFragment.newInstance(
-                        detectedTexts = allLinesInRankedOrder, // Use all lines in ranked order
+                        detectedTexts = chineseLines, // Not used anymore but kept for compatibility
                         imagePath = file.absolutePath,
                         selectedText = ""
                     )

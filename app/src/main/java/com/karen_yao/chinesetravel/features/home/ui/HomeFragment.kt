@@ -81,7 +81,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         
         // Add a test button for text selection with sample1.jpg
         val testTextSelectionButton = Button(requireContext()).apply {
-            text = "Test Text Selection"
+            text = "Test"
             textSize = 12f
             setTextColor(resources.getColor(R.color.red_primary, null))
             background = resources.getDrawable(R.drawable.button_beige_outline, null)
@@ -100,21 +100,24 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         // Show immediate feedback
         Log.d("HomeFragment", "Starting test export...")
 
-        // Run the test export
-        TestDataUtils.exportAndTestImages(requireContext(), repo())
-
         // Show a toast to indicate test is running
         android.widget.Toast.makeText(
             requireContext(),
-            "Test export started! Check logs for results.",
-            android.widget.Toast.LENGTH_LONG
+            "🧪 Testing 3 images from assets...",
+            android.widget.Toast.LENGTH_SHORT
         ).show()
 
-        // Refresh the RecyclerView to show any new test data
+        // Run the test export
+        TestDataUtils.exportAndTestImages(requireContext(), repo())
+
+        // Show a follow-up toast after a delay
         viewLifecycleOwner.lifecycleScope.launch {
-            // Wait a moment for the test to complete, then refresh
-            kotlinx.coroutines.delay(2000)
-            // The RecyclerView will automatically update via the ViewModel's Flow
+            kotlinx.coroutines.delay(3000)
+            android.widget.Toast.makeText(
+                requireContext(),
+                "✅ Test completed! Check logs for location details.",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
         }
     }
 

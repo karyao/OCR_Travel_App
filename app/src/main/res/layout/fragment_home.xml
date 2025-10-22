@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent" 
     android:layout_height="match_parent"
     android:background="@color/background_beige">
@@ -9,56 +10,104 @@
         android:id="@+id/headerLayout"
         layout="@layout/header_common" />
 
+    <!-- Main content area with better spacing -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recycler"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_marginTop="80dp"
-        android:layout_marginBottom="100dp"
-        android:padding="8dp"
+        android:layout_marginTop="120dp"
+        android:layout_marginBottom="120dp"
+        android:layout_marginRight="20dp"
+        android:layout_marginLeft="20dp"
+        android:padding="16dp"
         android:clipToPadding="false" />
 
+    <!-- Enhanced Floating Action Button -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabCapture"
         android:src="@android:drawable/ic_menu_camera"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="end|bottom"
-        android:layout_margin="16dp"
+        android:layout_margin="24dp"
         android:backgroundTint="@color/red_primary"
-        android:tint="@color/white" />
+        android:tint="@color/white"
+        app:elevation="8dp"
+        app:borderWidth="0dp" />
 
-    <!-- Button container for test and clear buttons -->
+    <!-- Enhanced button container with better styling -->
     <LinearLayout
         android:id="@+id/buttonContainer"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="start|bottom"
-        android:layout_margin="16dp"
+        android:layout_margin="24dp"
         android:orientation="horizontal"
-        android:gravity="center_vertical">
+        android:gravity="center_vertical"
+        android:background="@drawable/button_beige_outline"
+        android:padding="8dp">
 
         <!-- Test button for development -->
         <Button
             android:id="@+id/btnTest"
-            android:text="Test OCR Location"
+            android:text="🧪 Test Assets"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginEnd="8dp"
-            android:minWidth="120dp"
-            android:background="@drawable/button_beige_outline"
+            android:minWidth="100dp"
+            android:background="@drawable/button_red_primary"
             android:textColor="@color/white"
-            android:textSize="12sp" />
+            android:textSize="12sp"
+            android:textStyle="bold" />
 
         <Button
             android:id="@+id/btnClear"
-            android:text="Clear All"
+            android:text="🗑️ Clear"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:minWidth="100dp"
-            android:background="@drawable/button_beige_outline"
+            android:minWidth="80dp"
+            android:background="@drawable/button_red_primary"
             android:textColor="@color/white"
-            android:textSize="12sp" />
+            android:textSize="12sp"
+            android:textStyle="bold" />
 
     </LinearLayout>
+
+    <!-- Empty state message (when no snaps) -->
+    <LinearLayout
+        android:id="@+id/emptyStateLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="32dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="📸"
+            android:textSize="48sp"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="No Chinese text captured yet"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_primary"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Tap the camera button to start capturing Chinese text"
+            android:textSize="14sp"
+            android:textColor="@color/text_secondary"
+            android:gravity="center" />
+
+    </LinearLayout>
+
 </FrameLayout>

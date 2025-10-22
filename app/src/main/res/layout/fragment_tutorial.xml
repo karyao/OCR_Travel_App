@@ -16,17 +16,28 @@
             android:id="@+id/headerLayout"
             layout="@layout/header_common" />
 
-        <!-- Step Indicator -->
-        <TextView
-            android:id="@+id/tvStepIndicator"
+        <!-- Enhanced Step Indicator -->
+        <com.google.android.material.card.MaterialCardView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
-            android:text="Step 1 of 4"
-            android:textSize="16sp"
-            android:textColor="@color/text_secondary"
-            android:textStyle="bold"
-            android:layout_marginBottom="16dp" />
+            android:layout_marginBottom="24dp"
+            app:cardCornerRadius="20dp"
+            app:cardElevation="4dp"
+            app:cardBackgroundColor="@color/accent_gold">
+
+            <TextView
+                android:id="@+id/tvStepIndicator"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Step 1 of 4"
+                android:textSize="16sp"
+                android:textColor="@color/text_primary"
+                android:textStyle="bold"
+                android:padding="12dp"
+                android:drawablePadding="8dp" />
+
+        </com.google.android.material.card.MaterialCardView>
 
         <!-- Tutorial Content Card -->
         <com.google.android.material.card.MaterialCardView
@@ -88,84 +99,153 @@
             android:layout_marginBottom="32dp">
 
             <!-- Feature 1 -->
-            <LinearLayout
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:padding="12dp"
-                android:background="@drawable/button_beige_outline"
-                android:layout_marginBottom="8dp"
-                android:gravity="center_vertical">
+                android:layout_marginBottom="12dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="4dp"
+                app:cardBackgroundColor="@color/background_card">
 
-                <TextView
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="📸"
-                    android:textSize="20sp"
-                    android:layout_marginEnd="12dp" />
+                    android:orientation="horizontal"
+                    android:padding="16dp"
+                    android:gravity="center_vertical">
 
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="AI-powered Chinese text recognition"
-                    android:textSize="14sp"
-                    android:textColor="@color/text_primary" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="📸"
+                        android:textSize="24sp"
+                        android:layout_marginEnd="16dp" />
 
-            </LinearLayout>
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="AI-powered Chinese text recognition"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/text_primary" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Automatically detect and extract Chinese characters"
+                            android:textSize="12sp"
+                            android:textColor="@color/text_secondary" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
 
             <!-- Feature 2 -->
-            <LinearLayout
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:padding="12dp"
-                android:background="@drawable/button_beige_outline"
-                android:layout_marginBottom="8dp"
-                android:gravity="center_vertical">
+                android:layout_marginBottom="12dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="4dp"
+                app:cardBackgroundColor="@color/background_card">
 
-                <TextView
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="🔤"
-                    android:textSize="20sp"
-                    android:layout_marginEnd="12dp" />
+                    android:orientation="horizontal"
+                    android:padding="16dp"
+                    android:gravity="center_vertical">
 
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Pinyin pronunciation and English translation"
-                    android:textSize="14sp"
-                    android:textColor="@color/text_primary" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="🔤"
+                        android:textSize="24sp"
+                        android:layout_marginEnd="16dp" />
 
-            </LinearLayout>
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Pinyin pronunciation and English translation"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/text_primary" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Learn pronunciation and get instant translations"
+                            android:textSize="12sp"
+                            android:textColor="@color/text_secondary" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
 
             <!-- Feature 3 -->
-            <LinearLayout
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:padding="12dp"
-                android:background="@drawable/button_beige_outline"
-                android:gravity="center_vertical">
+                app:cardCornerRadius="16dp"
+                app:cardElevation="4dp"
+                app:cardBackgroundColor="@color/background_card">
 
-                <TextView
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="📍"
-                    android:textSize="20sp"
-                    android:layout_marginEnd="12dp" />
+                    android:orientation="horizontal"
+                    android:padding="16dp"
+                    android:gravity="center_vertical">
 
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Location-based travel journal"
-                    android:textSize="14sp"
-                    android:textColor="@color/text_primary" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="📍"
+                        android:textSize="24sp"
+                        android:layout_marginEnd="16dp" />
 
-            </LinearLayout>
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Location-based travel journal"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/text_primary" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Save locations and build your travel memories"
+                            android:textSize="12sp"
+                            android:textColor="@color/text_secondary" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
 
         </LinearLayout>
 

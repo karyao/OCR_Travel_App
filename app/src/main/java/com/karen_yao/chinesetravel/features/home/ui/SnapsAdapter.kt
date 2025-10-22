@@ -62,14 +62,14 @@ class SnapsViewHolder(
         translationText.text = snap.translation
         
         // Make Google Maps link clickable
-        if (!snap.googleMapsLink.isNullOrBlank()) {
+        if (!snap.googleMapsLink.isNullOrBlank() && snap.googleMapsLink != "No location found") {
             googleMapsLinkText.text = "🗺️ Open in Google Maps"
             googleMapsLinkText.setOnClickListener {
                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(snap.googleMapsLink))
                 itemView.context.startActivity(intent)
             }
         } else {
-            googleMapsLinkText.text = "No location data"
+            googleMapsLinkText.text = "No location found"
             googleMapsLinkText.setOnClickListener(null)
         }
         

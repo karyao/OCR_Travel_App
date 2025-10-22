@@ -34,7 +34,7 @@ class CaptureViewModel(private val repository: TravelRepository) : ViewModel() {
     ): Int {
         val googleMapsLink = if (latitude != null && longitude != null) {
             "https://www.google.com/maps/search/?api=1&query=$latitude,$longitude"
-        } else null
+        } else "No location found"
         
         val placeSnap = PlaceSnap(
             imagePath = imagePath,

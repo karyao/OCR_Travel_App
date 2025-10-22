@@ -16,29 +16,6 @@
             android:id="@+id/headerLayout"
             layout="@layout/header_common" />
 
-        <!-- Enhanced Step Indicator -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:layout_marginBottom="24dp"
-            app:cardCornerRadius="20dp"
-            app:cardElevation="4dp"
-            app:cardBackgroundColor="@color/accent_gold">
-
-            <TextView
-                android:id="@+id/tvStepIndicator"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Step 1 of 4"
-                android:textSize="16sp"
-                android:textColor="@color/text_primary"
-                android:textStyle="bold"
-                android:padding="12dp"
-                android:drawablePadding="8dp" />
-
-        </com.google.android.material.card.MaterialCardView>
-
         <!-- Tutorial Content Card -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"

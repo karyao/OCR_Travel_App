@@ -213,41 +213,28 @@ object TestDataUtils {
             "No Real Location"
         }
         
-        // Create test data based on image name
-        val testData = when (imageName) {
-            "chinese_character.jpg" -> TestData(
-                chinese = "测试字符",
-                pinyin = "ce shi zi fu",
-                lat = lat,
-                lng = lng,
-                address = address,
-                translation = "Test Character"
-            )
-            "IMG_3849.JPG" -> TestData(
-                chinese = "测试图片",
-                pinyin = "ce shi tu pian", 
-                lat = lat,
-                lng = lng,
-                address = address,
-                translation = "Test Image"
-            )
-            "sample1.jpg" -> TestData(
-                chinese = "样本测试",
-                pinyin = "yang ben ce shi",
-                lat = lat,
-                lng = lng,
-                address = address,
-                translation = "Sample Test"
-            )
-            else -> TestData(
-                chinese = "默认测试",
-                pinyin = "mo ren ce shi",
-                lat = lat,
-                lng = lng,
-                address = address,
-                translation = "Default Test"
-            )
+        // Get Chinese text and pinyin based on image name
+        val (chineseText, pinyinText) = when (imageName) {
+            "chinese_character.jpg" -> Pair("欢迎光临", "huān yíng guāng lín")
+            "IMG_3849.JPG" -> Pair("餐厅", "cān tīng")
+            "sample1.jpg" -> Pair("地铁站", "dì tiě zhàn")
+            else -> Pair("旅游景点", "lǚ yóu jǐng diǎn")
         }
+        
+        // Get real translation using ML Kit Translate
+        Log.d(TAG, "🔄 Getting translation for: $chineseText")
+        val realTranslation = TranslationUtils.translateChineseToEnglish(chineseText)
+        Log.d(TAG, "✅ Translation result: $realTranslation")
+        
+        // Create test data with real translation
+        val testData = TestData(
+            chinese = chineseText,
+            pinyin = pinyinText,
+            lat = lat,
+            lng = lng,
+            address = address,
+            translation = realTranslation
+        )
         
         return PlaceSnap(
             imagePath = imagePath,

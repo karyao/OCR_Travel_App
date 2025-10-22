@@ -8,11 +8,25 @@ import android.widget.Button
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.karen_yao.chinesetravel.R
+import com.karen_yao.chinesetravel.core.repository.TravelRepository
+import com.karen_yao.chinesetravel.features.capture.ui.CaptureViewModel
+import com.karen_yao.chinesetravel.features.capture.camera.ImageProcessor
 import com.karen_yao.chinesetravel.features.home.ui.HomeFragment
+import com.karen_yao.chinesetravel.shared.utils.PinyinUtils
+import com.karen_yao.chinesetravel.shared.extensions.repo
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.util.Locale
+import android.location.Geocoder
+import android.location.Address
 
 /**
  * TextSelectionFragment allows users to choose which Chinese text line
@@ -24,6 +38,9 @@ class TextSelectionFragment : Fragment(R.layout.fragment_text_selection) {
     private lateinit var detectedTexts: List<String>
     private lateinit var imagePath: String
     private lateinit var selectedText: String
+    
+    private lateinit var viewModel: CaptureViewModel
+    private lateinit var imageProcessor: ImageProcessor
 
     companion object {
         private const val ARG_DETECTED_TEXTS = "detected_texts"
@@ -54,6 +71,11 @@ class TextSelectionFragment : Fragment(R.layout.fragment_text_selection) {
         detectedTexts = textsArray.toList()
         imagePath = arguments?.getString(ARG_IMAGE_PATH) ?: ""
         selectedText = arguments?.getString(ARG_SELECTED_TEXT) ?: ""
+
+        // Initialize ViewModel and ImageProcessor
+        val repository = repo()
+        viewModel = CaptureViewModel(repository)
+        imageProcessor = ImageProcessor()
 
         setupHeader(view)
         setupImage(view)
@@ -92,9 +114,13 @@ class TextSelectionFragment : Fragment(R.layout.fragment_text_selection) {
 
     private fun setupTextOptions(view: View) {
         val recyclerView = view.findViewById<RecyclerView>(R.id.rvTextOptions)
+        val confirmButton = view.findViewById<Button>(R.id.btnConfirmSelection)
+        
         val adapter = TextOptionAdapter(detectedTexts) { index ->
             selectedTextIndex = index
             selectedText = detectedTexts[index]
+            // Enable confirm button when text is selected
+            confirmButton.isEnabled = true
         }
         
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
@@ -111,10 +137,10 @@ class TextSelectionFragment : Fragment(R.layout.fragment_text_selection) {
 
         confirmButton.setOnClickListener {
             if (selectedTextIndex >= 0) {
-                // Navigate back to home with selected text
-                parentFragmentManager.beginTransaction()
-                    .replace(R.id.container, HomeFragment())
-                    .commit()
+                // Process the selected text
+                processSelectedText(selectedText)
+            } else {
+                Toast.makeText(requireContext(), "Please select a text option", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -124,6 +150,61 @@ class TextSelectionFragment : Fragment(R.layout.fragment_text_selection) {
         // Enable confirm button when text is selected
         if (selectedTextIndex >= 0) {
             confirmButton.isEnabled = true
+        }
+    }
+
+    private fun processSelectedText(chineseText: String) {
+        val pinyin = if (chineseText.isNotBlank()) PinyinUtils.toPinyin(chineseText) else ""
+
+        lifecycleScope.launch {
+            try {
+                val file = File(imagePath)
+                val location = imageProcessor.extractLocationFromFile(file)
+                val address = if (location != null) {
+                    reverseGeocode(location.first, location.second)
+                } else {
+                    "Unknown location"
+                }
+
+                val totalCount = viewModel.saveAndCount(
+                    chineseText, pinyin, location?.first, location?.second,
+                    address ?: "Unknown location", imagePath
+                )
+
+                Toast.makeText(requireContext(), "Saved. Total rows: $totalCount", Toast.LENGTH_SHORT).show()
+                
+                // Navigate back to home
+                parentFragmentManager.beginTransaction()
+                    .replace(R.id.container, HomeFragment())
+                    .commit()
+            } catch (e: Exception) {
+                Toast.makeText(requireContext(), "Error saving: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private suspend fun reverseGeocode(lat: Double, lng: Double): String? = withContext(Dispatchers.IO) {
+        try {
+            val geocoder = Geocoder(requireContext(), Locale.getDefault())
+            val addresses = geocoder.getFromLocation(lat, lng, 1)
+            
+            if (addresses?.isNotEmpty() == true) {
+                val address = addresses[0]
+                val addressString = buildString {
+                    address.getAddressLine(0)?.let { append(it) }
+                    if (address.locality != null) {
+                        if (isNotEmpty()) append(", ")
+                        append(address.locality)
+                    }
+                    if (address.countryName != null) {
+                        if (isNotEmpty()) append(", ")
+                        append(address.countryName)
+                    }
+                }
+                if (addressString.isNotEmpty()) addressString else null
+            } else null
+        } catch (e: Exception) {
+            null
         }
     }
 

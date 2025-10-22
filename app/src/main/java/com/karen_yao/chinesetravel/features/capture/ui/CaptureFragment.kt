@@ -194,7 +194,6 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
 
     private fun processSelectedText(chineseText: String, file: File) {
         val pinyin = if (chineseText.isNotBlank()) PinyinUtils.toPinyin(chineseText) else ""
-        val translation = if (chineseText.isNotBlank()) TranslationUtils.translateChineseToEnglish(chineseText) else "No translation"
 
         lifecycleScope.launchWhenStarted {
             val location = imageProcessor.extractLocationFromFile(file)
@@ -204,7 +203,7 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
 
             val totalCount = viewModel.saveAndCount(
                 chineseText, pinyin, location?.first, location?.second,
-                address, file.absolutePath, translation
+                address, file.absolutePath
             )
 
             Toast.makeText(requireContext(), "Saved. Total rows: $totalCount", Toast.LENGTH_SHORT).show()

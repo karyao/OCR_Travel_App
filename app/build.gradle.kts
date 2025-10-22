@@ -70,6 +70,9 @@ dependencies {
 
     // --- ML Kit Chinese OCR (on-device) ---
     implementation("com.google.mlkit:text-recognition-chinese:16.0.1")
+    
+    // --- ML Kit Translate (on-device) ---
+    implementation("com.google.mlkit:translate:17.0.1")
 
     // --- EXIF metadata (GPS from photo) ---
     implementation("androidx.exifinterface:exifinterface:1.3.7")

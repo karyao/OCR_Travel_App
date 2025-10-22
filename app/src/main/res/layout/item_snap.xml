@@ -26,15 +26,6 @@
             android:gravity="center_vertical">
 
             <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="中"
-                android:textSize="28sp"
-                android:textColor="@color/red_primary"
-                android:textStyle="bold" />
-
-            <TextView
                 android:id="@+id/tvCn"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -42,7 +33,7 @@
                 android:textStyle="bold"
                 android:textSize="20sp"
                 android:textColor="@color/text_primary"
-                android:gravity="end" />
+                android:gravity="start" />
 
             <!-- Enhanced Delete Button -->
             <Button
@@ -51,8 +42,8 @@
                 android:layout_height="wrap_content"
                 android:text="✕"
                 android:textSize="18sp"
-                android:textColor="@color/white"
-                android:background="@drawable/button_red_primary"
+                android:textColor="@color/text_primary"
+                android:background="@android:color/transparent"
                 android:minWidth="44dp"
                 android:minHeight="44dp"
                 android:layout_marginStart="12dp"
@@ -119,7 +110,7 @@
             android:layout_height="wrap_content"
             android:text="📍 View on Google Maps"
             android:textSize="14sp"
-            android:textColor="@color/red_primary"
+            android:textColor="@color/white"
             android:textStyle="bold"
             style="@style/Widget.ChineseTravel.Button.Outlined"
             android:layout_marginTop="12dp"

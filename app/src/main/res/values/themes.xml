@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme with beige and red colors -->
+    <!-- Base application theme with warm coral and peach colors -->
     <style name="Theme.ChineseTravel" parent="Theme.Material3.DayNight">
         <!-- Primary brand color -->
         <item name="colorPrimary">@color/red_primary</item>

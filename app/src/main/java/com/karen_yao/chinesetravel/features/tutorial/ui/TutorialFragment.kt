@@ -82,10 +82,6 @@ class TutorialFragment : Fragment(R.layout.fragment_tutorial) {
     }
 
     private fun showTutorialStep(view: View, step: TutorialStep) {
-        // Update step indicator
-        view.findViewById<TextView>(R.id.tvStepIndicator).text = 
-            "Step ${step.stepNumber} of ${step.totalSteps}"
-
         // Update content
         view.findViewById<TextView>(R.id.tvTutorialTitle).text = step.title
         view.findViewById<TextView>(R.id.tvTutorialDescription).text = step.description

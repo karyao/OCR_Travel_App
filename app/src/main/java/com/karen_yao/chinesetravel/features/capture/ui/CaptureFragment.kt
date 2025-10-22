@@ -20,6 +20,7 @@ import androidx.exifinterface.media.ExifInterface
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
+import android.util.Log
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
@@ -145,7 +146,7 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
     }
 
     private fun processImageWithOCR(image: InputImage, file: File, source: String) {
-        Toast.makeText(requireContext(), "Running OCR ($source)...", Toast.LENGTH_SHORT).show()
+        Toast.makeText(requireContext(), "Running enhanced OCR ($source)...", Toast.LENGTH_SHORT).show()
 
         val recognizer = TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
         recognizer.process(image)
@@ -153,13 +154,33 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
                 val rawText = visionText.text ?: ""
                 val chineseLines = extractAllChineseLines(rawText)
                 
-                if (chineseLines.size > 1) {
-                    // Multiple Chinese lines detected - show selection screen
-                    showTextSelectionScreen(chineseLines, file.absolutePath)
+                if (chineseLines.isNotEmpty()) {
+                    // Use smart ranking to prioritize restaurant names
+                    val imageProcessor = ImageProcessor()
+                    val rankedTexts = imageProcessor.rankRestaurantNames(chineseLines)
+                    
+                    Log.d("CaptureFragment", "=== ENHANCED OCR RESULTS ===")
+                    Log.d("CaptureFragment", "Raw text: $rawText")
+                    Log.d("CaptureFragment", "Chinese lines (${chineseLines.size}): $chineseLines")
+                    Log.d("CaptureFragment", "Ranked results:")
+                    rankedTexts.forEach { ranked ->
+                        Log.d("CaptureFragment", "  '${ranked.text}' (score: ${ranked.score})")
+                    }
+                    
+                    if (chineseLines.size > 1) {
+                        // Multiple Chinese lines detected - show selection screen with ALL lines
+                        // Use ranked order but include all detected lines
+                        val allLinesInRankedOrder = rankedTexts.map { it.text } + 
+                            chineseLines.filter { line -> !rankedTexts.any { it.text == line } }
+                        Log.d("CaptureFragment", "Showing ${allLinesInRankedOrder.size} lines in selection screen: $allLinesInRankedOrder")
+                        showTextSelectionScreen(allLinesInRankedOrder, file.absolutePath)
+                    } else {
+                        // Single line - use the best ranked result
+                        val bestText = rankedTexts.firstOrNull()?.text ?: chineseLines.firstOrNull() ?: ""
+                        processSelectedText(bestText, file)
+                    }
                 } else {
-                    // Single line or no Chinese text - process directly
-                    val chineseText = chineseLines.firstOrNull() ?: ""
-                    processSelectedText(chineseText, file)
+                    Toast.makeText(requireContext(), "No Chinese text detected", Toast.LENGTH_SHORT).show()
                 }
             }
             .addOnFailureListener { exception ->

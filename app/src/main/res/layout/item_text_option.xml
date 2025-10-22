@@ -17,16 +17,32 @@
         android:gravity="center_vertical">
 
         <!-- Chinese Text -->
-        <TextView
-            android:id="@+id/tvTextOption"
+        <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="中文字符"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:textColor="@color/text_primary"
-            android:layout_marginEnd="16dp" />
+            android:orientation="vertical"
+            android:layout_marginEnd="16dp">
+
+            <TextView
+                android:id="@+id/tvTextOption"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="中文字符"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary" />
+
+            <TextView
+                android:id="@+id/tvConfidenceScore"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Confidence: 85%"
+                android:textSize="12sp"
+                android:textColor="@color/text_secondary"
+                android:textStyle="italic" />
+
+        </LinearLayout>
 
         <!-- Selected Indicator -->
         <TextView

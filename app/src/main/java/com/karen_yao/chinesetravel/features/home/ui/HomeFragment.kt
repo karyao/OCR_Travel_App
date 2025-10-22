@@ -195,16 +195,28 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
                 Log.d("HomeFragment", "Chinese lines found: $chineseLines")
                 
                 if (chineseLines.isNotEmpty()) {
-                    // Show success message
+                    // Use enhanced ranking to prioritize restaurant names
+                    val imageProcessor = com.karen_yao.chinesetravel.features.capture.camera.ImageProcessor()
+                    val rankedTexts = imageProcessor.rankRestaurantNames(chineseLines)
+                    
+                    Log.d("HomeFragment", "=== ENHANCED RANKING ===")
+                    rankedTexts.forEach { ranked ->
+                        Log.d("HomeFragment", "  '${ranked.text}' (score: ${ranked.score})")
+                    }
+                    
+                    // Show success message with ranking info
+                    val bestScore = rankedTexts.firstOrNull()?.score ?: 0f
                     android.widget.Toast.makeText(
                         requireContext(),
-                        "Found ${chineseLines.size} Chinese text lines",
-                        android.widget.Toast.LENGTH_SHORT
+                        "Found ${chineseLines.size} Chinese lines (best: ${rankedTexts.firstOrNull()?.text} - score: $bestScore)",
+                        android.widget.Toast.LENGTH_LONG
                     ).show()
                     
-                    // Navigate to text selection fragment (drawing interface)
+                    // Navigate to text selection fragment with ALL lines in ranked order
+                    val allLinesInRankedOrder = rankedTexts.map { it.text } + 
+                        chineseLines.filter { line -> !rankedTexts.any { it.text == line } }
                     val textSelectionFragment = com.karen_yao.chinesetravel.features.textselection.ui.TextSelectionFragment.newInstance(
-                        detectedTexts = chineseLines, // Not used anymore but kept for compatibility
+                        detectedTexts = allLinesInRankedOrder, // Use all lines in ranked order
                         imagePath = file.absolutePath,
                         selectedText = ""
                     )

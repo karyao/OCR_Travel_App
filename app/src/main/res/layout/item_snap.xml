@@ -23,7 +23,8 @@
             android:layout_marginBottom="12dp"
             android:background="@color/accent_gold"
             android:padding="12dp"
-            android:gravity="center_vertical">
+            android:gravity="center_vertical"
+            app:cardCornerRadius="16dp">
 
             <TextView
                 android:id="@+id/tvCn"

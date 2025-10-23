@@ -212,42 +212,54 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
                 Log.d("HomeFragment", "=== OCR RESULTS ===")
                 Log.d("HomeFragment", "Raw detected text: '$rawText'")
                 
-                // Show all detected text lines for debugging
-                val allLines = rawText.lines().filter { it.trim().isNotEmpty() }
-                Log.d("HomeFragment", "All detected lines: $allLines")
+                // Get ALL lines from OCR (not just Chinese ones)
+                val allLines = rawText.lines()
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
                 
-                // Extract Chinese lines from the real OCR result
-                val chineseLines = extractAllChineseLines(rawText)
-                Log.d("HomeFragment", "Chinese lines found: $chineseLines")
+                Log.d("HomeFragment", "📝 All OCR lines found: $allLines")
+                Log.d("HomeFragment", "📊 Total lines: ${allLines.size}")
                 
-                if (chineseLines.isNotEmpty()) {
-                    // Show success message
-                    android.widget.Toast.makeText(
-                        requireContext(),
-                        "Found ${chineseLines.size} Chinese text lines",
-                        android.widget.Toast.LENGTH_SHORT
-                    ).show()
-                    
-                    // Navigate to text selection fragment (drawing interface)
-                    val textSelectionFragment = com.karen_yao.chinesetravel.features.textselection.ui.TextSelectionFragment.newInstance(
-                        detectedTexts = chineseLines, // Not used anymore but kept for compatibility
-                        imagePath = file.absolutePath,
-                        selectedText = ""
-                    )
-                    
-                    parentFragmentManager.beginTransaction()
-                        .replace(R.id.container, textSelectionFragment)
-                        .addToBackStack(null)
-                        .commit()
+                // Enhanced Chinese text extraction
+                val chineseLines = extractAllChineseLinesEnhanced(rawText)
+                Log.d("HomeFragment", "🔤 Chinese lines found: $chineseLines")
+                
+                if (chineseLines.isEmpty()) {
+                    // No Chinese text detected - check if we have any text at all
+                    if (allLines.isNotEmpty()) {
+                        Log.d("HomeFragment", "⚠️ No Chinese characters found, showing all lines for selection")
+                        showTextSelectionScreen(allLines, file.absolutePath)
+                    } else {
+                        // No text detected at all - show crop suggestion
+                        Log.w("HomeFragment", "⚠️ No text found in: $rawText")
+                        showNoTextDetectedDialog(file.absolutePath)
+                    }
+                } else if (chineseLines.size > 1) {
+                    // Multiple Chinese lines detected - show selection screen
+                    showTextSelectionScreen(chineseLines, file.absolutePath)
+                } else if (allLines.size > 1) {
+                    // Multiple lines detected (including non-Chinese) - show ALL lines for selection
+                    Log.d("HomeFragment", "📋 Showing all ${allLines.size} lines for selection")
+                    showTextSelectionScreen(allLines, file.absolutePath)
                 } else {
-                    // Show what was actually detected
-                    android.widget.Toast.makeText(
-                        requireContext(),
-                        "No Chinese text found. Detected: ${allLines.take(2).joinToString(", ")}",
-                        android.widget.Toast.LENGTH_LONG
-                    ).show()
-                    
-                    Log.d("HomeFragment", "No Chinese characters detected in: $allLines")
+                    // Single line - check if it's good quality Chinese text
+                    val textToProcess = chineseLines.firstOrNull() ?: allLines.firstOrNull() ?: ""
+                    if (textToProcess.isNotEmpty()) {
+                        // Check if the Chinese text quality is good
+                        if (isGoodQualityChineseText(textToProcess)) {
+                            // Process the text directly (in test mode, just show success)
+                            android.widget.Toast.makeText(
+                                requireContext(),
+                                "✅ Good quality Chinese text detected: '$textToProcess'",
+                                android.widget.Toast.LENGTH_LONG
+                            ).show()
+                        } else {
+                            // Poor quality Chinese text - suggest retry
+                            showPoorQualityTextDialog(textToProcess, file.absolutePath)
+                        }
+                    } else {
+                        android.widget.Toast.makeText(requireContext(), "No text to process", android.widget.Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
             .addOnFailureListener { exception ->
@@ -371,5 +383,142 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
                 ).show()
             }
         }
+    }
+    
+    /**
+     * Enhanced Chinese text extraction with better detection patterns.
+     */
+    private fun extractAllChineseLinesEnhanced(allText: String): List<String> {
+        return allText.lines()
+            .map { line -> line.trim() }
+            .filter { line -> 
+                line.isNotEmpty() && hasChineseCharacters(line)
+            }
+            .map { line -> cleanChineseText(line) }
+            .filter { line -> line.isNotEmpty() }
+    }
+    
+    /**
+     * Check if a line contains Chinese characters.
+     */
+    private fun hasChineseCharacters(text: String): Boolean {
+        // Pattern 1: Standard Han characters
+        if (text.any { it.toString().matches(Regex("[\\p{IsHan}]")) }) {
+            return true
+        }
+        
+        // Pattern 2: CJK Unified Ideographs
+        if (text.any { it.toString().matches(Regex("[\\u4e00-\\u9fff]")) }) {
+            return true
+        }
+        
+        // Pattern 3: Common Chinese punctuation and symbols
+        if (text.any { it.toString().matches(Regex("[\\u3000-\\u303f\\u3100-\\u312f]")) }) {
+            return true
+        }
+        
+        return false
+    }
+    
+    /**
+     * Clean and normalize Chinese text.
+     */
+    private fun cleanChineseText(text: String): String {
+        return text
+            .replace(Regex("[\\u200b-\\u200d\\ufeff]"), "") // Zero-width characters
+            .replace(Regex("[\\u00a0]"), " ") // Non-breaking spaces
+            .replace(Regex("\\s+"), " ") // Multiple spaces
+            .trim()
+            .takeIf { it.length >= 1 }
+            ?: ""
+    }
+    
+    /**
+     * Checks if the detected Chinese text is of good quality.
+     */
+    private fun isGoodQualityChineseText(text: String): Boolean {
+        val hasArtifacts = text.contains(Regex("[\\u200b-\\u200d\\ufeff]")) ||
+                          text.contains(Regex("[\\u00a0]")) ||
+                          text.contains(Regex("\\s{2,}")) ||
+                          text.length < 2 ||
+                          text.contains(Regex("[^\\p{IsHan}\\p{IsPunctuation}\\s]"))
+        
+        val chineseCharCount = text.count { it.toString().matches(Regex("[\\p{IsHan}]")) }
+        val chineseRatio = if (text.isNotEmpty()) chineseCharCount.toFloat() / text.length else 0f
+        
+        return !hasArtifacts && chineseRatio > 0.5f && text.length >= 2
+    }
+    
+    /**
+     * Shows text selection screen with detected texts.
+     */
+    private fun showTextSelectionScreen(texts: List<String>, imagePath: String) {
+        val textSelectionFragment = com.karen_yao.chinesetravel.features.textselection.ui.TextSelectionFragment.newInstance(
+            detectedTexts = texts,
+            imagePath = imagePath,
+            selectedText = ""
+        )
+        
+        parentFragmentManager.beginTransaction()
+            .replace(R.id.container, textSelectionFragment)
+            .addToBackStack(null)
+            .commit()
+    }
+    
+    /**
+     * Shows a dialog when no text is detected, suggesting the user try a more cropped image.
+     */
+    private fun showNoTextDetectedDialog(imagePath: String) {
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(requireContext())
+            .setTitle("🔍 No Text Detected")
+            .setMessage("We couldn't find any text in this image. This often happens when:\n\n" +
+                    "• The image is too wide or includes too much background\n" +
+                    "• The text is too small or blurry\n" +
+                    "• The lighting is poor\n\n" +
+                    "Try taking a more focused photo with just the Chinese text visible.")
+            .setPositiveButton("📸 Try Again") { _, _ ->
+                // Go back to capture screen to try again
+                requireActivity().onBackPressedDispatcher.onBackPressed()
+            }
+            .setNegativeButton("📁 Choose from Gallery") { _, _ ->
+                // This would need to be implemented if needed
+                android.widget.Toast.makeText(requireContext(), "Gallery selection not available in test mode", android.widget.Toast.LENGTH_SHORT).show()
+            }
+            .setNeutralButton("🏠 Back to Home") { _, _ ->
+                // Stay on home screen (already here)
+                android.widget.Toast.makeText(requireContext(), "Staying on home screen", android.widget.Toast.LENGTH_SHORT).show()
+            }
+            .create()
+        
+        dialog.show()
+    }
+    
+    /**
+     * Shows a dialog when poor quality Chinese text is detected.
+     */
+    private fun showPoorQualityTextDialog(detectedText: String, imagePath: String) {
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(requireContext())
+            .setTitle("⚠️ Poor Text Quality")
+            .setMessage("We detected some Chinese text, but it might not be clear enough:\n\n" +
+                    "\"$detectedText\"\n\n" +
+                    "This could be due to:\n" +
+                    "• Blurry or unclear text\n" +
+                    "• Poor lighting\n" +
+                    "• Text too small or far away\n" +
+                    "• Background interference\n\n" +
+                    "Would you like to try a more focused photo?")
+            .setPositiveButton("📸 Try Better Photo") { _, _ ->
+                requireActivity().onBackPressedDispatcher.onBackPressed()
+            }
+            .setNegativeButton("📁 Choose from Gallery") { _, _ ->
+                android.widget.Toast.makeText(requireContext(), "Gallery selection not available in test mode", android.widget.Toast.LENGTH_SHORT).show()
+            }
+            .setNeutralButton("✅ Use This Text") { _, _ ->
+                // Process the text anyway - this would need to be implemented
+                android.widget.Toast.makeText(requireContext(), "✅ Using detected text: '$detectedText'", android.widget.Toast.LENGTH_LONG).show()
+            }
+            .create()
+        
+        dialog.show()
     }
 }

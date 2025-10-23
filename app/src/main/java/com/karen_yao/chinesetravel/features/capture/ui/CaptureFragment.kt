@@ -21,8 +21,8 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.text.TextRecognition
-import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
+import com.karen_yao.chinesetravel.features.capture.ocr.PaddleOCRService
+import com.karen_yao.chinesetravel.features.capture.ocr.PaddleOCRServiceImpl
 import com.karen_yao.chinesetravel.R
 import com.karen_yao.chinesetravel.features.capture.camera.CameraManager
 import com.karen_yao.chinesetravel.features.capture.camera.ImageProcessor
@@ -49,6 +49,7 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
     }
     private val cameraManager = CameraManager()
     private val imageProcessor = ImageProcessor()
+    private val paddleOCRService: PaddleOCRService = PaddleOCRServiceImpl()
 
     // Photo picker for gallery selection
     private val pickImage = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -146,66 +147,82 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
     }
 
     private fun processImageWithOCR(image: InputImage, file: File, source: String) {
-        Toast.makeText(requireContext(), "Running OCR ($source)...", Toast.LENGTH_SHORT).show()
+        Toast.makeText(requireContext(), "Running PaddleOCR ($source)...", Toast.LENGTH_SHORT).show()
 
-        // Enhanced Chinese OCR with better options
-        val options = ChineseTextRecognizerOptions.Builder()
-            .build()
-        
-        val recognizer = TextRecognition.getClient(options)
-        
         // Log image details for debugging
         Log.d("CaptureFragment", "📸 Processing image: ${file.name}, size: ${file.length()} bytes")
         
-        recognizer.process(image)
-            .addOnSuccessListener { visionText ->
-                val rawText = visionText.text ?: ""
-                Log.d("CaptureFragment", "🔍 Raw OCR text: $rawText")
-                
-                // Get ALL lines from OCR (not just Chinese ones)
-                val allLines = rawText.lines()
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() }
-                
-                Log.d("CaptureFragment", "📝 All OCR lines found: $allLines")
-                Log.d("CaptureFragment", "📊 Total lines: ${allLines.size}")
-                
-                // Enhanced Chinese text extraction
-                val chineseLines = extractAllChineseLinesEnhanced(rawText)
-                Log.d("CaptureFragment", "🔤 Chinese lines found: $chineseLines")
-                
-                if (chineseLines.isEmpty()) {
-                    // No Chinese text detected - show ALL lines for selection
-                    if (allLines.isNotEmpty()) {
-                        Log.d("CaptureFragment", "⚠️ No Chinese characters found, showing all lines for selection")
+        // Use PaddleOCR for Chinese text recognition
+        lifecycleScope.launch {
+            try {
+                paddleOCRService.recognizeText(image).collect { rawText ->
+                    Log.d("CaptureFragment", "🔍 PaddleOCR text: $rawText")
+                    
+                    // Get ALL lines from OCR (not just Chinese ones)
+                    val allLines = rawText.lines()
+                        .map { it.trim() }
+                        .filter { it.isNotEmpty() }
+                    
+                    Log.d("CaptureFragment", "📝 All OCR lines found: $allLines")
+                    Log.d("CaptureFragment", "📊 Total lines: ${allLines.size}")
+                    
+                    // Enhanced Chinese text extraction
+                    val chineseLines = extractAllChineseLinesEnhanced(rawText)
+                    Log.d("CaptureFragment", "🔤 Chinese lines found: $chineseLines")
+                    
+                    if (chineseLines.isEmpty()) {
+                        // No Chinese text detected - check if we have any text at all
+                        if (allLines.isNotEmpty()) {
+                            Log.d("CaptureFragment", "⚠️ No Chinese characters found, showing all lines for selection")
+                            showTextSelectionScreen(allLines, file.absolutePath)
+                        } else {
+                            // No text detected at all - show crop suggestion
+                            Log.w("CaptureFragment", "⚠️ No text found in: $rawText")
+                            showNoTextDetectedDialog(file.absolutePath)
+                        }
+                    } else if (chineseLines.size > 1) {
+                        // Multiple Chinese lines detected - show selection screen
+                        showTextSelectionScreen(chineseLines, file.absolutePath)
+                    } else if (allLines.size > 1) {
+                        // Multiple lines detected (including non-Chinese) - show ALL lines for selection
+                        Log.d("CaptureFragment", "📋 Showing all ${allLines.size} lines for selection")
                         showTextSelectionScreen(allLines, file.absolutePath)
                     } else {
-                        Toast.makeText(requireContext(), 
-                            "No text detected. Raw text: ${rawText.take(50)}...", 
-                            Toast.LENGTH_LONG).show()
-                        Log.w("CaptureFragment", "⚠️ No text found in: $rawText")
-                    }
-                } else if (chineseLines.size > 1) {
-                    // Multiple Chinese lines detected - show selection screen
-                    showTextSelectionScreen(chineseLines, file.absolutePath)
-                } else if (allLines.size > 1) {
-                    // Multiple lines detected (including non-Chinese) - show ALL lines for selection
-                    Log.d("CaptureFragment", "📋 Showing all ${allLines.size} lines for selection")
-                    showTextSelectionScreen(allLines, file.absolutePath)
-                } else {
-                    // Single line - process directly
-                    val textToProcess = chineseLines.firstOrNull() ?: allLines.firstOrNull() ?: ""
-                    if (textToProcess.isNotEmpty()) {
-                        processSelectedText(textToProcess, file)
-                    } else {
-                        Toast.makeText(requireContext(), "No text to process", Toast.LENGTH_SHORT).show()
+                        // Single line - check if it's good quality Chinese text
+                        val textToProcess = chineseLines.firstOrNull() ?: allLines.firstOrNull() ?: ""
+                        if (textToProcess.isNotEmpty()) {
+                            // Check if the Chinese text quality is good
+                            if (isGoodQualityChineseText(textToProcess)) {
+                                processSelectedText(textToProcess, file)
+                            } else {
+                                // Poor quality Chinese text - suggest retry
+                                showPoorQualityTextDialog(textToProcess, file.absolutePath)
+                            }
+                        } else {
+                            Toast.makeText(requireContext(), "No text to process", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
+            } catch (exception: Exception) {
+                Log.e("CaptureFragment", "❌ PaddleOCR failed: ${exception.message}")
+                Toast.makeText(requireContext(), "PaddleOCR API failed: ${exception.message}", Toast.LENGTH_LONG).show()
+                
+                // Show detailed error information
+                val errorDialog = androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                    .setTitle("🚨 PaddleOCR API Error")
+                    .setMessage("PaddleOCR API is not available:\n\n${exception.message}\n\nPlease check:\n• Internet connection\n• API endpoint configuration\n• API key (if required)")
+                    .setPositiveButton("Retry") { _, _ ->
+                        // Retry the same image
+                        processImageWithOCR(image, file, source)
+                    }
+                    .setNegativeButton("Cancel") { _, _ ->
+                        // Go back to capture screen
+                        requireActivity().onBackPressedDispatcher.onBackPressed()
+                    }
+                    .create()
+                errorDialog.show()
             }
-            .addOnFailureListener { exception ->
-                Log.e("CaptureFragment", "❌ OCR failed: ${exception.message}")
-                Toast.makeText(requireContext(), "OCR failed: ${exception.message}", Toast.LENGTH_SHORT).show()
-            }
+        }
     }
 
     private fun extractAllChineseLines(allText: String): List<String> {
@@ -315,5 +332,86 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
         } catch (exception: Exception) { 
             null 
         }
+    }
+    
+    /**
+     * Checks if the detected Chinese text is of good quality.
+     * Returns true if the text appears to be clear and well-formed.
+     */
+    private fun isGoodQualityChineseText(text: String): Boolean {
+        // Check for common OCR artifacts that indicate poor quality
+        val hasArtifacts = text.contains(Regex("[\\u200b-\\u200d\\ufeff]")) || // Zero-width characters
+                          text.contains(Regex("[\\u00a0]")) || // Non-breaking spaces
+                          text.contains(Regex("\\s{2,}")) || // Multiple spaces
+                          text.length < 2 || // Too short
+                          text.contains(Regex("[^\\p{IsHan}\\p{IsPunctuation}\\s]")) // Non-Chinese characters mixed in
+        
+        // Check if text has reasonable Chinese character density
+        val chineseCharCount = text.count { it.toString().matches(Regex("[\\p{IsHan}]")) }
+        val chineseRatio = if (text.isNotEmpty()) chineseCharCount.toFloat() / text.length else 0f
+        
+        return !hasArtifacts && chineseRatio > 0.5f && text.length >= 2
+    }
+    
+    /**
+     * Shows a dialog when poor quality Chinese text is detected, suggesting the user try a better image.
+     */
+    private fun showPoorQualityTextDialog(detectedText: String, imagePath: String) {
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(requireContext())
+            .setTitle("⚠️ Poor Text Quality")
+            .setMessage("We detected some Chinese text, but it might not be clear enough:\n\n" +
+                    "\"$detectedText\"\n\n" +
+                    "This could be due to:\n" +
+                    "• Blurry or unclear text\n" +
+                    "• Poor lighting\n" +
+                    "• Text too small or far away\n" +
+                    "• Background interference\n\n" +
+                    "Would you like to try a more focused photo?")
+            .setPositiveButton("📸 Try Better Photo") { _, _ ->
+                // Go back to capture screen to try again
+                requireActivity().onBackPressedDispatcher.onBackPressed()
+            }
+            .setNegativeButton("📁 Choose from Gallery") { _, _ ->
+                // Open gallery picker
+                pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            }
+            .setNeutralButton("✅ Use This Text") { _, _ ->
+                // Process the text anyway
+                val file = File(imagePath)
+                processSelectedText(detectedText, file)
+            }
+            .create()
+        
+        dialog.show()
+    }
+    
+    /**
+     * Shows a dialog when no text is detected, suggesting the user try a more cropped image.
+     */
+    private fun showNoTextDetectedDialog(imagePath: String) {
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(requireContext())
+            .setTitle("🔍 No Text Detected")
+            .setMessage("We couldn't find any text in this image. This often happens when:\n\n" +
+                    "• The image is too wide or includes too much background\n" +
+                    "• The text is too small or blurry\n" +
+                    "• The lighting is poor\n\n" +
+                    "Try taking a more focused photo with just the Chinese text visible.")
+            .setPositiveButton("📸 Try Again") { _, _ ->
+                // Go back to capture screen to try again
+                requireActivity().onBackPressedDispatcher.onBackPressed()
+            }
+            .setNegativeButton("📁 Choose from Gallery") { _, _ ->
+                // Open gallery picker
+                pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            }
+            .setNeutralButton("🏠 Back to Home") { _, _ ->
+                // Navigate directly to home to avoid loop
+                parentFragmentManager.beginTransaction()
+                    .replace(R.id.container, com.karen_yao.chinesetravel.features.home.ui.HomeFragment())
+                    .commit()
+            }
+            .create()
+        
+        dialog.show()
     }
 }

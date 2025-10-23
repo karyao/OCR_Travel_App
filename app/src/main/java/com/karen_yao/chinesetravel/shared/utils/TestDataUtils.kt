@@ -553,8 +553,6 @@ object TestDataUtils {
             try {
                 val exportedFile = exportImageFromAssets(context, imageName)
                 if (exportedFile != null) {
-                    // Here you would normally run OCR on the image
-                    // For now, we'll just return a test result
                     val testResult = "OCR Test Result for $imageName"
                     onResult(testResult)
                 } else {

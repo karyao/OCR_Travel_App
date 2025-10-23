@@ -22,7 +22,8 @@
             android:layout_height="wrap_content"
             app:cardCornerRadius="20dp"
             app:cardElevation="6dp"
-            app:cardBackgroundColor="@color/background_card"
+            app:cardBackgroundColor="@color/background_beige"
+            android:layout_margin="10dp"
             android:layout_marginBottom="24dp">
 
             <LinearLayout
@@ -37,9 +38,9 @@
                     android:layout_width="match_parent"
                     android:layout_height="200dp"
                     android:layout_marginBottom="20dp"
-                    android:scaleType="centerCrop"
-                    android:background="@color/divider_light"
-                    android:contentDescription="Tutorial Image" />
+                    android:scaleType="fitCenter"
+                    android:background="@color/background_card"
+                    android:contentDescription="Logo" />
 
                 <!-- Tutorial Title -->
                 <TextView
@@ -73,6 +74,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
+            android:layout_margin="10dp"
             android:layout_marginBottom="32dp">
 
             <!-- Feature 1 -->

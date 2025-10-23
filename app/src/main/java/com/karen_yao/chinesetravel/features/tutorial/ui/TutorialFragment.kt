@@ -24,13 +24,13 @@ class TutorialFragment : Fragment(R.layout.fragment_tutorial) {
         TutorialStep(
             title = "Welcome to Chinese Travel!",
             description = "Learn how to capture, translate, and explore Chinese text during your travels.",
-            imageRes = "chinese_character.jpg",
+            imageRes = "Travel_Logo.png",
             stepNumber = 1,
             totalSteps = 4
         ),
         TutorialStep(
             title = "Step 1: Capture Chinese Text",
-            description = "Point your camera at any Chinese text - signs, menus, documents, or books. The app will automatically detect and recognize the text using AI.",
+            description = "Point your camera at any Chinese text names. The app will automatically detect and recognize the text using AI.",
             imageRes = "sample1.jpg",
             stepNumber = 2,
             totalSteps = 4

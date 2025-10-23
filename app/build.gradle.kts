@@ -48,6 +48,7 @@ dependencies {
     implementation(libs.material)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
+    implementation(libs.play.services.mlkit.text.recognition.chinese)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -68,10 +69,16 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:1.3.4")
     implementation("androidx.camera:camera-view:1.3.4")
 
-    // --- ML Kit Chinese OCR (on-device) ---
-    implementation("com.google.mlkit:text-recognition-chinese:16.0.1")
+    // --- PaddleOCR for Chinese text recognition ---
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
     
-    // --- ML Kit Translate (on-device) ---
+    // --- ML Kit for InputImage (camera integration) ---
+    implementation("com.google.mlkit:vision-common:17.3.0")
+    
+    // --- ML Kit Translate (on-device) - keeping for translation ---
     implementation("com.google.mlkit:translate:17.0.1")
 
     // --- EXIF metadata (GPS from photo) ---

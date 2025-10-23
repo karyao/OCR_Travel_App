@@ -70,8 +70,8 @@
                     <androidx.recyclerview.widget.RecyclerView
                         android:id="@+id/rvTextOptions"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:nestedScrollingEnabled="false" />
+                        android:layout_height="400dp"
+                        android:nestedScrollingEnabled="true" />
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>

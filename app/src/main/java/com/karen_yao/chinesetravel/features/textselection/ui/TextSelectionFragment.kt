@@ -72,6 +72,12 @@ class TextSelectionFragment : Fragment(R.layout.fragment_text_selection) {
         imagePath = arguments?.getString(ARG_IMAGE_PATH) ?: ""
         selectedText = arguments?.getString(ARG_SELECTED_TEXT) ?: ""
 
+        // Debug logging
+        android.util.Log.d("TextSelectionFragment", "📋 Received ${detectedTexts.size} text options:")
+        detectedTexts.forEachIndexed { index, text ->
+            android.util.Log.d("TextSelectionFragment", "   $index: '$text'")
+        }
+
         // Initialize ViewModel and ImageProcessor
         val repository = repo()
         viewModel = CaptureViewModel(repository)
@@ -116,15 +122,20 @@ class TextSelectionFragment : Fragment(R.layout.fragment_text_selection) {
         val recyclerView = view.findViewById<RecyclerView>(R.id.rvTextOptions)
         val confirmButton = view.findViewById<Button>(R.id.btnConfirmSelection)
         
+        android.util.Log.d("TextSelectionFragment", "Setting up RecyclerView with ${detectedTexts.size} items")
+        
         val adapter = TextOptionAdapter(detectedTexts) { index ->
             selectedTextIndex = index
             selectedText = detectedTexts[index]
+            android.util.Log.d("TextSelectionFragment", "Item $index selected: '$selectedText'")
             // Enable confirm button when text is selected
             confirmButton.isEnabled = true
         }
         
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
         recyclerView.adapter = adapter
+        
+        android.util.Log.d("TextSelectionFragment", "RecyclerView setup complete")
     }
 
     private fun setupButtons(view: View) {
@@ -224,16 +235,22 @@ class TextOptionAdapter(
     private var selectedIndex = -1
 
     override fun onCreateViewHolder(parent: android.view.ViewGroup, viewType: Int): TextOptionViewHolder {
+        android.util.Log.d("TextOptionAdapter", "onCreateViewHolder called for viewType $viewType")
         val view = android.view.LayoutInflater.from(parent.context)
             .inflate(R.layout.item_text_option, parent, false)
         return TextOptionViewHolder(view)
     }
 
     override fun onBindViewHolder(holder: TextOptionViewHolder, position: Int) {
-        holder.bind(texts[position], position == selectedIndex)
+        val text = texts[position]
+        android.util.Log.d("TextOptionAdapter", "Binding position $position: '$text'")
+        holder.bind(text, position == selectedIndex)
     }
 
-    override fun getItemCount() = texts.size
+    override fun getItemCount(): Int {
+        android.util.Log.d("TextOptionAdapter", "getItemCount() called, returning ${texts.size}")
+        return texts.size
+    }
 
     inner class TextOptionViewHolder(view: android.view.View) : RecyclerView.ViewHolder(view) {
         private val textView = view.findViewById<TextView>(R.id.tvTextOption)
@@ -246,8 +263,9 @@ class TextOptionAdapter(
             itemView.setOnClickListener {
                 val oldIndex = selectedIndex
                 selectedIndex = adapterPosition
-                notifyItemChanged(oldIndex)
-                notifyItemChanged(selectedIndex)
+                
+                // Use notifyDataSetChanged for more reliable updates
+                notifyDataSetChanged()
                 onItemClick(selectedIndex)
             }
         }

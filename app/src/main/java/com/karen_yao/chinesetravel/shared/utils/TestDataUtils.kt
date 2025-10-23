@@ -87,6 +87,7 @@ object TestDataUtils {
     fun exportAndTestImages(context: Context, repository: TravelRepository) {
         CoroutineScope(Dispatchers.IO).launch {
             Log.d(TAG, "🚀 Starting test image export and processing...")
+            Log.d(TAG, "📋 Test images to process: $testImages")
             
             var successCount = 0
             var totalCount = 0
@@ -99,6 +100,8 @@ object TestDataUtils {
                     // Export image from assets to device storage
                     val exportedFile = exportImageFromAssets(context, imageName)
                     if (exportedFile != null) {
+                        Log.d(TAG, "✅ Successfully exported: ${exportedFile.absolutePath}")
+                        Log.d(TAG, "📏 File size: ${exportedFile.length()} bytes")
                         // Check if the image has real location data
                         val imageProcessor = ImageProcessor()
                         val hasLocation = imageProcessor.hasLocationData(exportedFile)
@@ -223,7 +226,12 @@ object TestDataUtils {
         
         // Get real translation using ML Kit Translate
         Log.d(TAG, "🔄 Getting translation for: $chineseText")
-        val realTranslation = TranslationUtils.translateChineseToEnglish(chineseText)
+        val realTranslation = try {
+            TranslationUtils.translateChineseToEnglish(chineseText)
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Translation failed: ${e.message}")
+            getFallbackTranslation(chineseText)
+        }
         Log.d(TAG, "✅ Translation result: $realTranslation")
         
         // Create test data with real translation
@@ -250,6 +258,33 @@ object TestDataUtils {
                 "No location found"
             }
         )
+    }
+    
+    /**
+     * Fallback translation for common travel terms when ML Kit fails.
+     */
+    private fun getFallbackTranslation(text: String): String {
+        return when (text) {
+            "欢迎光临" -> "Welcome (fallback)"
+            "餐厅" -> "Restaurant (fallback)"
+            "地铁站" -> "Subway Station (fallback)"
+            "旅游景点" -> "Tourist Attraction (fallback)"
+            "银行" -> "Bank (fallback)"
+            "医院" -> "Hospital (fallback)"
+            "商店" -> "Shop (fallback)"
+            "市场" -> "Market (fallback)"
+            "酒店" -> "Hotel (fallback)"
+            "机场" -> "Airport (fallback)"
+            "火车站" -> "Train Station (fallback)"
+            "公交站" -> "Bus Stop (fallback)"
+            "厕所" -> "Restroom (fallback)"
+            "出口" -> "Exit (fallback)"
+            "入口" -> "Entrance (fallback)"
+            "左转" -> "Turn Left (fallback)"
+            "右转" -> "Turn Right (fallback)"
+            "直走" -> "Go Straight (fallback)"
+            else -> "Translation unavailable (fallback)"
+        }
     }
 
     /**

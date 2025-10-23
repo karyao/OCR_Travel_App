@@ -35,6 +35,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Locale
+import android.util.Log
 
 /**
  * Fragment for capturing photos and processing Chinese text recognition.
@@ -147,22 +148,62 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
     private fun processImageWithOCR(image: InputImage, file: File, source: String) {
         Toast.makeText(requireContext(), "Running OCR ($source)...", Toast.LENGTH_SHORT).show()
 
-        val recognizer = TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
+        // Enhanced Chinese OCR with better options
+        val options = ChineseTextRecognizerOptions.Builder()
+            .build()
+        
+        val recognizer = TextRecognition.getClient(options)
+        
+        // Log image details for debugging
+        Log.d("CaptureFragment", "📸 Processing image: ${file.name}, size: ${file.length()} bytes")
+        
         recognizer.process(image)
             .addOnSuccessListener { visionText ->
                 val rawText = visionText.text ?: ""
-                val chineseLines = extractAllChineseLines(rawText)
+                Log.d("CaptureFragment", "🔍 Raw OCR text: $rawText")
                 
-                if (chineseLines.size > 1) {
+                // Get ALL lines from OCR (not just Chinese ones)
+                val allLines = rawText.lines()
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+                
+                Log.d("CaptureFragment", "📝 All OCR lines found: $allLines")
+                Log.d("CaptureFragment", "📊 Total lines: ${allLines.size}")
+                
+                // Enhanced Chinese text extraction
+                val chineseLines = extractAllChineseLinesEnhanced(rawText)
+                Log.d("CaptureFragment", "🔤 Chinese lines found: $chineseLines")
+                
+                if (chineseLines.isEmpty()) {
+                    // No Chinese text detected - show ALL lines for selection
+                    if (allLines.isNotEmpty()) {
+                        Log.d("CaptureFragment", "⚠️ No Chinese characters found, showing all lines for selection")
+                        showTextSelectionScreen(allLines, file.absolutePath)
+                    } else {
+                        Toast.makeText(requireContext(), 
+                            "No text detected. Raw text: ${rawText.take(50)}...", 
+                            Toast.LENGTH_LONG).show()
+                        Log.w("CaptureFragment", "⚠️ No text found in: $rawText")
+                    }
+                } else if (chineseLines.size > 1) {
                     // Multiple Chinese lines detected - show selection screen
                     showTextSelectionScreen(chineseLines, file.absolutePath)
+                } else if (allLines.size > 1) {
+                    // Multiple lines detected (including non-Chinese) - show ALL lines for selection
+                    Log.d("CaptureFragment", "📋 Showing all ${allLines.size} lines for selection")
+                    showTextSelectionScreen(allLines, file.absolutePath)
                 } else {
-                    // Single line or no Chinese text - process directly
-                    val chineseText = chineseLines.firstOrNull() ?: ""
-                    processSelectedText(chineseText, file)
+                    // Single line - process directly
+                    val textToProcess = chineseLines.firstOrNull() ?: allLines.firstOrNull() ?: ""
+                    if (textToProcess.isNotEmpty()) {
+                        processSelectedText(textToProcess, file)
+                    } else {
+                        Toast.makeText(requireContext(), "No text to process", Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
             .addOnFailureListener { exception ->
+                Log.e("CaptureFragment", "❌ OCR failed: ${exception.message}")
                 Toast.makeText(requireContext(), "OCR failed: ${exception.message}", Toast.LENGTH_SHORT).show()
             }
     }
@@ -174,6 +215,61 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
                 line.any { it.toString().matches(Regex("[\\p{IsHan}]")) }
             }
             .map { it.trim() }
+    }
+    
+    /**
+     * Enhanced Chinese text extraction with better detection patterns.
+     * Handles various Chinese text formats and mixed content.
+     */
+    private fun extractAllChineseLinesEnhanced(allText: String): List<String> {
+        return allText.lines()
+            .map { line -> line.trim() }
+            .filter { line -> 
+                line.isNotEmpty() && hasChineseCharacters(line)
+            }
+            .map { line -> cleanChineseText(line) }
+            .filter { line -> line.isNotEmpty() }
+    }
+    
+    /**
+     * Check if a line contains Chinese characters.
+     * Uses multiple detection patterns for better accuracy.
+     */
+    private fun hasChineseCharacters(text: String): Boolean {
+        // Pattern 1: Standard Han characters
+        if (text.any { it.toString().matches(Regex("[\\p{IsHan}]")) }) {
+            return true
+        }
+        
+        // Pattern 2: CJK Unified Ideographs
+        if (text.any { it.toString().matches(Regex("[\\u4e00-\\u9fff]")) }) {
+            return true
+        }
+        
+        // Pattern 3: Common Chinese punctuation and symbols
+        if (text.any { it.toString().matches(Regex("[\\u3000-\\u303f\\u3100-\\u312f]")) }) {
+            return true
+        }
+        
+        return false
+    }
+    
+    /**
+     * Clean and normalize Chinese text.
+     * Removes common OCR artifacts and normalizes spacing.
+     */
+    private fun cleanChineseText(text: String): String {
+        return text
+            // Remove common OCR artifacts
+            .replace(Regex("[\\u200b-\\u200d\\ufeff]"), "") // Zero-width characters
+            .replace(Regex("[\\u00a0]"), " ") // Non-breaking spaces
+            // Normalize multiple spaces
+            .replace(Regex("\\s+"), " ")
+            // Remove leading/trailing whitespace
+            .trim()
+            // Remove lines that are too short (likely noise)
+            .takeIf { it.length >= 1 }
+            ?: ""
     }
 
     private fun extractBestChineseLine(allText: String): String =

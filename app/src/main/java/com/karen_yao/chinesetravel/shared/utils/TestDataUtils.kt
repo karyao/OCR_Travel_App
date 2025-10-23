@@ -10,6 +10,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 import java.io.File
 import java.io.FileOutputStream
 import java.util.Locale
@@ -110,13 +112,25 @@ object TestDataUtils {
                         Log.d(TAG, "🔍 Location check for $imageName: hasLocation=$hasLocation, realLocation=$realLocation")
                         
                         // Create a test PlaceSnap entry with real or fallback data
-                        val testSnap = createTestPlaceSnapWithRealData(
-                            imageName, 
-                            exportedFile.absolutePath, 
-                            hasLocation, 
-                            realLocation,
-                            context
-                        )
+                        val testSnap = if (imageName == "chinese_character.jpg") {
+                            // Use real OCR for chinese_character.jpg
+                            createTestPlaceSnapWithRealOCR(
+                                imageName,
+                                exportedFile.absolutePath,
+                                hasLocation,
+                                realLocation,
+                                context
+                            )
+                        } else {
+                            // Use fallback data for other images
+                            createTestPlaceSnapWithRealData(
+                                imageName, 
+                                exportedFile.absolutePath, 
+                                hasLocation, 
+                                realLocation,
+                                context
+                            )
+                        }
                         
                         // Always save test images, but indicate location status
                         repository.saveSnap(testSnap)
@@ -258,6 +272,119 @@ object TestDataUtils {
                 "No location found"
             }
         )
+    }
+    
+    /**
+     * Create a test PlaceSnap with real OCR for chinese_character.jpg.
+     * This actually runs OCR on the image instead of using fallback data.
+     */
+    private suspend fun createTestPlaceSnapWithRealOCR(
+        imageName: String,
+        imagePath: String,
+        hasLocation: Boolean,
+        realLocation: Pair<Double, Double>?,
+        context: Context
+    ): PlaceSnap {
+        Log.d(TAG, "🔍 Running REAL OCR on $imageName")
+        
+        // Determine coordinates
+        val (lat, lng) = if (hasLocation && realLocation != null) {
+            realLocation
+        } else {
+            // Use fallback coordinates
+            when (imageName) {
+                "chinese_character.jpg" -> Pair(39.9042, 116.4074) // Beijing
+                else -> Pair(39.9042, 116.4074) // Default to Beijing
+            }
+        }
+        
+        // Get real address if we have location data, otherwise use fallback
+        val address = if (hasLocation && realLocation != null) {
+            getRealAddress(context, lat, lng)
+        } else {
+            "No Real Location"
+        }
+        
+        // Run REAL OCR on the image
+        val ocrResult = runRealOCR(context, imagePath)
+        val chineseText = ocrResult.first
+        val pinyinText = if (chineseText.isNotEmpty()) {
+            // Use PinyinUtils to convert Chinese to pinyin
+            com.karen_yao.chinesetravel.shared.utils.PinyinUtils.toPinyin(chineseText)
+        } else {
+            "No text detected"
+        }
+        
+        // Get real translation using ML Kit Translate
+        Log.d(TAG, "🔄 Getting REAL translation for: $chineseText")
+        val realTranslation = try {
+            TranslationUtils.translateChineseToEnglish(chineseText)
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Translation failed: ${e.message}")
+            "Translation failed"
+        }
+        Log.d(TAG, "✅ REAL Translation result: $realTranslation")
+        
+        return PlaceSnap(
+            imagePath = imagePath,
+            nameCn = chineseText,
+            namePinyin = pinyinText,
+            lat = lat,
+            longitude = lng,
+            address = address,
+            translation = realTranslation,
+            googleMapsLink = if (hasLocation && realLocation != null) {
+                "https://www.google.com/maps/search/?api=1&query=$lat,$lng"
+            } else {
+                "No location found"
+            }
+        )
+    }
+    
+    /**
+     * Run real OCR on an image file.
+     * Returns the detected Chinese text.
+     */
+    private suspend fun runRealOCR(context: Context, imagePath: String): Pair<String, String> {
+        return try {
+            Log.d(TAG, "🔍 Running OCR on: $imagePath")
+            
+            // Create InputImage from file
+            val image = com.google.mlkit.vision.common.InputImage.fromFilePath(context, android.net.Uri.fromFile(java.io.File(imagePath)))
+            
+            // Create Chinese text recognizer
+            val recognizer = com.google.mlkit.vision.text.TextRecognition.getClient(
+                com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions.Builder().build()
+            )
+            
+            // Run OCR
+            val result = suspendCancellableCoroutine<com.google.mlkit.vision.text.Text> { continuation ->
+                recognizer.process(image)
+                    .addOnSuccessListener { text ->
+                        continuation.resume(text)
+                    }
+                    .addOnFailureListener { exception ->
+                        Log.e(TAG, "❌ OCR failed: ${exception.message}")
+                        // Return empty result instead of creating Text object
+                        continuation.resume(com.google.mlkit.vision.text.Text("", emptyList<com.google.mlkit.vision.text.Text.Element>()))
+                    }
+            }
+            val detectedText = result.text ?: ""
+            
+            Log.d(TAG, "📝 OCR detected text: '$detectedText'")
+            
+            // Extract Chinese characters
+            val chineseText = detectedText.filter { it.toString().matches(Regex("[\\p{IsHan}]")) }
+            
+            Log.d(TAG, "🔤 Chinese characters found: '$chineseText'")
+            
+            recognizer.close()
+            
+            Pair(chineseText, detectedText)
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ OCR failed: ${e.message}")
+            Pair("OCR failed", "")
+        }
     }
     
     /**

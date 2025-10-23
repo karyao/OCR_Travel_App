@@ -17,12 +17,16 @@ import kotlinx.coroutines.launch
 import androidx.recyclerview.widget.LinearLayoutManager
 import android.util.Log
 import androidx.exifinterface.media.ExifInterface
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.Spinner
 import java.io.File
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import com.karen_yao.chinesetravel.core.database.entities.PlaceSnap
+import com.karen_yao.chinesetravel.shared.utils.TranslationUtils
 
 /**
  * Home fragment displaying the list of captured place snaps.
@@ -72,38 +76,49 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
     }
 
     private fun setupTestButton(view: View) {
-        // Add a test button for development/testing purposes
-        val testButton = view.findViewById<Button>(R.id.btnTest) ?: return
-        testButton.setOnClickListener {
-            Log.d("HomeFragment", "Running test data export...")
-            runTestExport()
-        }
+        val spinner = view.findViewById<Spinner>(R.id.spinnerTestFeatures) ?: return
         
-        // Add a test button for text selection with sample1.jpg
-        val testTextSelectionButton = Button(requireContext()).apply {
-            text = "Test"
-            textSize = 12f
-            setTextColor(resources.getColor(R.color.red_primary, null))
-            background = resources.getDrawable(R.drawable.button_beige_outline, null)
-            setPadding(12, 8, 12, 8)
-            setOnClickListener {
-                testTextSelectionWithSample1()
+        // Create test options
+        val testOptions = listOf(
+            "Select a test feature...",
+            "🧪 Test Database Storage",
+            "📸 Test OCR & Text Selection"
+        )
+        
+        // Create adapter for spinner
+        val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, testOptions)
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinner.adapter = adapter
+        
+        // Handle selection
+        spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                when (position) {
+                    1 -> {
+                        Log.d("HomeFragment", "Running database storage test...")
+                        runTestExport()
+                    }
+                    2 -> {
+                        Log.d("HomeFragment", "Running OCR test...")
+                        testTextSelectionWithSample1()
+                    }
+                }
+            }
+            
+            override fun onNothingSelected(parent: AdapterView<*>?) {
+                // Do nothing
             }
         }
-        
-        // Add the test text selection button to the button container
-        val buttonContainer = view.findViewById<LinearLayout>(R.id.buttonContainer)
-        buttonContainer?.addView(testTextSelectionButton)
     }
 
     private fun runTestExport() {
         // Show immediate feedback
-        Log.d("HomeFragment", "Starting test export...")
+        Log.d("HomeFragment", "Starting database storage test...")
 
         // Show a toast to indicate test is running
         android.widget.Toast.makeText(
             requireContext(),
-            "🧪 Testing 3 images from assets...",
+            "🧪 Testing database storage with 3 sample images...",
             android.widget.Toast.LENGTH_SHORT
         ).show()
 
@@ -115,12 +130,13 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             kotlinx.coroutines.delay(3000)
             android.widget.Toast.makeText(
                 requireContext(),
-                "✅ Test completed! Check logs for location details.",
+                "✅ Database test completed! Check home screen for new entries.",
                 android.widget.Toast.LENGTH_LONG
             ).show()
         }
     }
-
+    
+    
     private fun testImageForLocation(context: Context) {
         val inputStream = context.assets.open("IMG_3849.JPG")
         val exif = ExifInterface(inputStream)
@@ -143,7 +159,14 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
     }
     
     private fun testTextSelectionWithSample1() {
-        Log.d("HomeFragment", "Testing text selection with sample1.jpg...")
+        Log.d("HomeFragment", "Testing OCR and text selection with sample1.jpg...")
+        
+        // Show immediate feedback
+        android.widget.Toast.makeText(
+            requireContext(),
+            "📸 Testing OCR with sample image...",
+            android.widget.Toast.LENGTH_SHORT
+        ).show()
         
         try {
             // Copy sample1.jpg from assets to cache directory
@@ -158,7 +181,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             runRealOCROnSample1(testFile)
                 
         } catch (e: Exception) {
-            Log.e("HomeFragment", "Error testing text selection: ${e.message}")
+            Log.e("HomeFragment", "Error testing OCR: ${e.message}")
             android.widget.Toast.makeText(
                 requireContext(),
                 "Error loading sample1.jpg: ${e.message}",

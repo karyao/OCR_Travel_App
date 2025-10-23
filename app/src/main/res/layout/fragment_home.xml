@@ -35,9 +35,9 @@
         app:elevation="8dp"
         app:borderWidth="0dp" />
 
-    <!-- Enhanced button container with better styling -->
+    <!-- Test Features Dropdown -->
     <LinearLayout
-        android:id="@+id/buttonContainer"
+        android:id="@+id/testContainer"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="start|bottom"
@@ -45,26 +45,25 @@
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:background="@drawable/button_beige_outline"
-        android:padding="8dp">
+        android:padding="12dp">
 
-        <!-- Test button for development -->
-        <Button
-            android:id="@+id/btnTest"
-            android:text="🧪 Test Assets"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
-            android:minWidth="100dp"
-            android:background="@drawable/button_red_primary"
-            android:textColor="@color/white"
-            android:textSize="12sp"
-            android:textStyle="bold" />
+        <!-- Test Features Dropdown -->
+        <Spinner
+            android:id="@+id/spinnerTestFeatures"
+            android:layout_width="200dp"
+            android:layout_height="48dp"
+            android:background="@drawable/button_beige_outline"
+            android:padding="12dp"
+            android:textSize="14sp"
+            android:gravity="center"
+            android:layout_marginEnd="8dp" />
 
+        <!-- Clear Button -->
         <Button
             android:id="@+id/btnClear"
             android:text="🗑️ Clear"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_height="48dp"
             android:minWidth="80dp"
             android:background="@drawable/button_red_primary"
             android:textColor="@color/white"

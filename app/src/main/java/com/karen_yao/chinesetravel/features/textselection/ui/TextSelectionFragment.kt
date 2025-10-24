@@ -106,14 +106,15 @@ class TextSelectionFragment : Fragment(R.layout.fragment_text_selection) {
     private fun setupImage(view: View) {
         val imageView = view.findViewById<ImageView>(R.id.ivCapturedImage)
         
-        // Load and display the image
+        // Load and display the image with proper rotation handling
         try {
             val imageFile = java.io.File(imagePath)
             if (imageFile.exists()) {
-                val bitmap = BitmapFactory.decodeFile(imageFile.absolutePath)
-                imageView.setImageBitmap(bitmap)
+                // Use ImageProcessor to load image with rotation correction
+                imageProcessor.loadImageWithRotation(imageView, imageFile.absolutePath)
             }
         } catch (e: Exception) {
+            android.util.Log.e("TextSelectionFragment", "Error loading image: ${e.message}")
             // Handle error silently
         }
     }

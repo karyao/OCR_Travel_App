@@ -87,9 +87,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             "Select a test feature...",
             "🧪 Test Database Storage",
             "📸 Test OCR 1 (IMG_3950.JPG)",
-            "📸 Test OCR 2 (TEST2.png)",
-            "🔍 Test OCR 1 (No Preprocessing)",
-            "🔍 Test OCR 2 (No Preprocessing)"
+            "📸 Test OCR 2 (TEST2.png)"
         )
         
         // Create adapter for spinner
@@ -118,14 +116,6 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
                     3 -> {
                         Log.d("HomeFragment", "Running OCR test 2...")
                         testTextSelectionWithSample2()
-                    }
-                    4 -> {
-                        Log.d("HomeFragment", "Running OCR test 1 (no preprocessing)...")
-                        testOCRSample1NoPreprocessing()
-                    }
-                    5 -> {
-                        Log.d("HomeFragment", "Running OCR test 2 (no preprocessing)...")
-                        testOCRSample2NoPreprocessing()
                     }
                 }
             }
@@ -236,70 +226,6 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             
             // Run REAL OCR on the image
             runRealOCROnSample2(testFile)
-                
-        } catch (e: Exception) {
-            Log.e("HomeFragment", "Error testing OCR: ${e.message}")
-            android.widget.Toast.makeText(
-                requireContext(),
-                "Error loading TEST2.png: ${e.message}",
-                android.widget.Toast.LENGTH_SHORT
-            ).show()
-        }
-    }
-    
-    private fun testOCRSample1NoPreprocessing() {
-        Log.d("HomeFragment", "Testing OCR without preprocessing with IMG_3950.JPG...")
-        
-        // Show immediate feedback
-        android.widget.Toast.makeText(
-            requireContext(),
-            "📸 Testing OCR (no preprocessing) with sample image...",
-            android.widget.Toast.LENGTH_SHORT
-        ).show()
-        
-        try {
-            // Copy IMG_3950.JPG from assets to cache directory
-            val inputStream = requireContext().assets.open("IMG_3950.JPG")
-            val testFile = File(requireContext().cacheDir, "test_IMG_3950_no_prep_${System.currentTimeMillis()}.jpg")
-            testFile.outputStream().use { outputStream ->
-                inputStream.copyTo(outputStream)
-            }
-            inputStream.close()
-            
-            // Run OCR WITHOUT preprocessing
-            runRealOCROnSample1NoPreprocessing(testFile)
-                
-        } catch (e: Exception) {
-            Log.e("HomeFragment", "Error testing OCR: ${e.message}")
-            android.widget.Toast.makeText(
-                requireContext(),
-                "Error loading IMG_3950.JPG: ${e.message}",
-                android.widget.Toast.LENGTH_SHORT
-            ).show()
-        }
-    }
-    
-    private fun testOCRSample2NoPreprocessing() {
-        Log.d("HomeFragment", "Testing OCR without preprocessing with TEST2.png...")
-        
-        // Show immediate feedback
-        android.widget.Toast.makeText(
-            requireContext(),
-            "📸 Testing OCR (no preprocessing) with sample image 2...",
-            android.widget.Toast.LENGTH_SHORT
-        ).show()
-        
-        try {
-            // Copy TEST2.png from assets to cache directory
-            val inputStream = requireContext().assets.open("TEST2.png")
-            val testFile = File(requireContext().cacheDir, "test_TEST2_no_prep_${System.currentTimeMillis()}.png")
-            testFile.outputStream().use { outputStream ->
-                inputStream.copyTo(outputStream)
-            }
-            inputStream.close()
-            
-            // Run OCR WITHOUT preprocessing
-            runRealOCROnSample2NoPreprocessing(testFile)
                 
         } catch (e: Exception) {
             Log.e("HomeFragment", "Error testing OCR: ${e.message}")
@@ -451,176 +377,6 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
                     android.widget.Toast.makeText(
                         requireContext(),
                         "🔍 OCR detected: '$rawText' (${rawText.length} chars)",
-                        android.widget.Toast.LENGTH_LONG
-                    ).show()
-                    
-                    if (allLines.isEmpty()) {
-                        // No text detected at all - show crop suggestion
-                        Log.w("HomeFragment", "⚠️ No text found in: $rawText")
-                        showNoTextDetectedDialog(file.absolutePath)
-                    } else if (allLines.size > 1) {
-                        // Multiple lines detected - show selection screen
-                        Log.d("HomeFragment", "📋 Showing ${allLines.size} lines for selection")
-                        showTextSelectionScreen(allLines, file.absolutePath)
-                    } else {
-                        // Single line - process it directly
-                        val textToProcess = allLines.first()
-                        if (textToProcess.length >= 2) {
-                            processSelectedTextForTest(textToProcess, file)
-                        } else {
-                            android.widget.Toast.makeText(
-                                requireContext(),
-                                "Text too short, please try again",
-                                android.widget.Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                    }
-                }
-            } catch (exception: Exception) {
-                Log.e("HomeFragment", "OCR failed: ${exception.message}")
-                withContext(kotlinx.coroutines.Dispatchers.Main) {
-                    android.widget.Toast.makeText(
-                        requireContext(),
-                        "OCR failed: ${exception.message}",
-                        android.widget.Toast.LENGTH_SHORT
-                    ).show()
-                }
-            }
-        }
-    }
-    
-    private fun runRealOCROnSample1NoPreprocessing(file: File) {
-        // Show loading message
-        android.widget.Toast.makeText(
-            requireContext(),
-            "Running OCR on IMG_3950.JPG (no preprocessing)...",
-            android.widget.Toast.LENGTH_SHORT
-        ).show()
-        
-        // Move heavy operations to background thread
-        viewLifecycleOwner.lifecycleScope.launch {
-            try {
-                // Use original image WITHOUT preprocessing
-                val bitmap = android.graphics.BitmapFactory.decodeFile(file.absolutePath)
-                val image = com.google.mlkit.vision.common.InputImage.fromBitmap(bitmap, 0)
-                
-                val recognizer = com.google.mlkit.vision.text.TextRecognition.getClient(
-                    com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions.Builder().build()
-                )
-                
-                // Process OCR in background
-                val result = recognizer.process(image).await()
-                val rawText = result.text ?: ""
-                
-                Log.d("HomeFragment", "=== OCR RESULTS (No Preprocessing) ===")
-                Log.d("HomeFragment", "Raw detected text: '$rawText'")
-                Log.d("HomeFragment", "Text length: ${rawText.length}")
-                Log.d("HomeFragment", "Contains Chinese: ${rawText.any { it.toString().matches(Regex("[\\p{IsHan}]")) }}")
-
-                // Get ALL lines from OCR (not just Chinese ones)
-                val allLines = rawText.lines()
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() }
-
-                Log.d("HomeFragment", "📝 All OCR lines found: $allLines")
-                Log.d("HomeFragment", "📊 Total lines: ${allLines.size}")
-                
-                // Log each line separately for debugging
-                allLines.forEachIndexed { index, line ->
-                    Log.d("HomeFragment", "Line $index: '$line'")
-                }
-
-                // Update UI on main thread
-                withContext(kotlinx.coroutines.Dispatchers.Main) {
-                    // Show debug info about what was detected
-                    android.widget.Toast.makeText(
-                        requireContext(),
-                        "🔍 OCR (no prep) detected: '$rawText' (${rawText.length} chars)",
-                        android.widget.Toast.LENGTH_LONG
-                    ).show()
-                    
-                    if (allLines.isEmpty()) {
-                        // No text detected at all - show crop suggestion
-                        Log.w("HomeFragment", "⚠️ No text found in: $rawText")
-                        showNoTextDetectedDialog(file.absolutePath)
-                    } else if (allLines.size > 1) {
-                        // Multiple lines detected - show selection screen
-                        Log.d("HomeFragment", "📋 Showing ${allLines.size} lines for selection")
-                        showTextSelectionScreen(allLines, file.absolutePath)
-                    } else {
-                        // Single line - process it directly
-                        val textToProcess = allLines.first()
-                        if (textToProcess.length >= 2) {
-                            processSelectedTextForTest(textToProcess, file)
-                        } else {
-                            android.widget.Toast.makeText(
-                                requireContext(),
-                                "Text too short, please try again",
-                                android.widget.Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                    }
-                }
-            } catch (exception: Exception) {
-                Log.e("HomeFragment", "OCR failed: ${exception.message}")
-                withContext(kotlinx.coroutines.Dispatchers.Main) {
-                    android.widget.Toast.makeText(
-                        requireContext(),
-                        "OCR failed: ${exception.message}",
-                        android.widget.Toast.LENGTH_SHORT
-                    ).show()
-                }
-            }
-        }
-    }
-    
-    private fun runRealOCROnSample2NoPreprocessing(file: File) {
-        // Show loading message
-        android.widget.Toast.makeText(
-            requireContext(),
-            "Running OCR on TEST2.png (no preprocessing)...",
-            android.widget.Toast.LENGTH_SHORT
-        ).show()
-        
-        // Move heavy operations to background thread
-        viewLifecycleOwner.lifecycleScope.launch {
-            try {
-                // Use original image WITHOUT preprocessing
-                val bitmap = android.graphics.BitmapFactory.decodeFile(file.absolutePath)
-                val image = com.google.mlkit.vision.common.InputImage.fromBitmap(bitmap, 0)
-                
-                val recognizer = com.google.mlkit.vision.text.TextRecognition.getClient(
-                    com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions.Builder().build()
-                )
-                
-                // Process OCR in background
-                val result = recognizer.process(image).await()
-                val rawText = result.text ?: ""
-                
-                Log.d("HomeFragment", "=== OCR RESULTS (Sample 2, No Preprocessing) ===")
-                Log.d("HomeFragment", "Raw detected text: '$rawText'")
-                Log.d("HomeFragment", "Text length: ${rawText.length}")
-                Log.d("HomeFragment", "Contains Chinese: ${rawText.any { it.toString().matches(Regex("[\\p{IsHan}]")) }}")
-                
-                // Get ALL lines from OCR (not just Chinese ones)
-                val allLines = rawText.lines()
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() }
-                
-                Log.d("HomeFragment", "📝 All OCR lines found: $allLines")
-                Log.d("HomeFragment", "📊 Total lines: ${allLines.size}")
-                
-                // Log each line separately for debugging
-                allLines.forEachIndexed { index, line ->
-                    Log.d("HomeFragment", "Line $index: '$line'")
-                }
-                
-                // Update UI on main thread
-                withContext(kotlinx.coroutines.Dispatchers.Main) {
-                    // Show debug info about what was detected
-                    android.widget.Toast.makeText(
-                        requireContext(),
-                        "🔍 OCR (no prep) detected: '$rawText' (${rawText.length} chars)",
                         android.widget.Toast.LENGTH_LONG
                     ).show()
                     

@@ -146,4 +146,124 @@ class ImageProcessor {
             false
         }
     }
+    
+    /**
+     * Load and display an image with proper rotation handling.
+     * Respects EXIF orientation data to display images correctly.
+     * 
+     * @param imageView The ImageView to display the image in
+     * @param imagePath Path to the image file
+     */
+    fun loadImageWithRotation(imageView: android.widget.ImageView, imagePath: String) {
+        try {
+            val file = File(imagePath)
+            if (!file.exists()) {
+                android.util.Log.w("ImageProcessor", "Image file does not exist: $imagePath")
+                return
+            }
+            
+            // Get EXIF orientation
+            val exif = ExifInterface(file.absolutePath)
+            val orientation = exif.getAttributeInt(
+                ExifInterface.TAG_ORIENTATION,
+                ExifInterface.ORIENTATION_UNDEFINED
+            )
+            
+            // Decode the bitmap
+            val bitmap = BitmapFactory.decodeFile(file.absolutePath)
+            if (bitmap == null) {
+                android.util.Log.w("ImageProcessor", "Failed to decode image: $imagePath")
+                return
+            }
+            
+            // Apply rotation based on EXIF orientation
+            val rotatedBitmap = rotateBitmap(bitmap, orientation)
+            
+            // Set the rotated bitmap to the ImageView
+            imageView.setImageBitmap(rotatedBitmap)
+            
+            // Recycle the original bitmap if we created a rotated version
+            if (rotatedBitmap != bitmap) {
+                bitmap.recycle()
+            }
+            
+        } catch (e: Exception) {
+            android.util.Log.e("ImageProcessor", "Error loading image with rotation: ${e.message}")
+            // Fallback to regular loading
+            try {
+                val bitmap = BitmapFactory.decodeFile(imagePath)
+                imageView.setImageBitmap(bitmap)
+            } catch (fallbackException: Exception) {
+                android.util.Log.e("ImageProcessor", "Fallback image loading also failed: ${fallbackException.message}")
+            }
+        }
+    }
+    
+    /**
+     * Load and display an image from assets with proper rotation handling.
+     * 
+     * @param imageView The ImageView to display the image in
+     * @param context Context for accessing assets
+     * @param assetName Name of the asset file
+     */
+    fun loadImageFromAssetsWithRotation(imageView: android.widget.ImageView, context: android.content.Context, assetName: String) {
+        try {
+            val inputStream = context.assets.open(assetName)
+            val bitmap = BitmapFactory.decodeStream(inputStream)
+            inputStream.close()
+            
+            if (bitmap != null) {
+                imageView.setImageBitmap(bitmap)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("ImageProcessor", "Error loading asset image: ${e.message}")
+        }
+    }
+    
+    /**
+     * Rotate bitmap based on EXIF orientation.
+     * 
+     * @param bitmap Original bitmap
+     * @param orientation EXIF orientation value
+     * @return Rotated bitmap
+     */
+    private fun rotateBitmap(bitmap: Bitmap, orientation: Int): Bitmap {
+        return when (orientation) {
+            ExifInterface.ORIENTATION_ROTATE_90 -> rotateImage(bitmap, 90f)
+            ExifInterface.ORIENTATION_ROTATE_180 -> rotateImage(bitmap, 180f)
+            ExifInterface.ORIENTATION_ROTATE_270 -> rotateImage(bitmap, 270f)
+            ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> flipImage(bitmap, horizontal = true, vertical = false)
+            ExifInterface.ORIENTATION_FLIP_VERTICAL -> flipImage(bitmap, horizontal = false, vertical = true)
+            ExifInterface.ORIENTATION_TRANSPOSE -> {
+                val rotated = rotateImage(bitmap, 90f)
+                flipImage(rotated, horizontal = true, vertical = false)
+            }
+            ExifInterface.ORIENTATION_TRANSVERSE -> {
+                val rotated = rotateImage(bitmap, 270f)
+                flipImage(rotated, horizontal = true, vertical = false)
+            }
+            else -> bitmap // No rotation needed
+        }
+    }
+    
+    /**
+     * Rotate image by specified degrees.
+     */
+    private fun rotateImage(bitmap: Bitmap, degrees: Float): Bitmap {
+        val matrix = android.graphics.Matrix()
+        matrix.postRotate(degrees)
+        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+    }
+    
+    /**
+     * Flip image horizontally or vertically.
+     */
+    private fun flipImage(bitmap: Bitmap, horizontal: Boolean, vertical: Boolean): Bitmap {
+        val matrix = android.graphics.Matrix()
+        matrix.postScale(
+            if (horizontal) -1f else 1f,
+            if (vertical) -1f else 1f
+        )
+        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+    }
 }

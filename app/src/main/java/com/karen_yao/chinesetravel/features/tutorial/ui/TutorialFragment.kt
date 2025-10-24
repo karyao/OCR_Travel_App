@@ -99,11 +99,11 @@ class TutorialFragment : Fragment(R.layout.fragment_tutorial) {
 
     private fun loadImageFromAssets(imageView: ImageView, imageName: String) {
         try {
-            val inputStream = requireContext().assets.open(imageName)
-            val bitmap = android.graphics.BitmapFactory.decodeStream(inputStream)
-            imageView.setImageBitmap(bitmap)
-            inputStream.close()
+            // Use ImageProcessor for rotation-aware loading
+            val imageProcessor = com.karen_yao.chinesetravel.features.capture.camera.ImageProcessor()
+            imageProcessor.loadImageFromAssetsWithRotation(imageView, requireContext(), imageName)
         } catch (e: Exception) {
+            android.util.Log.e("TutorialFragment", "Error loading asset image: ${e.message}")
             // Fallback to a default image if asset loading fails
             imageView.setImageResource(android.R.drawable.ic_menu_camera)
         }

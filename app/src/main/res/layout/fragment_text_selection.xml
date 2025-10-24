@@ -15,6 +15,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_marginTop="80dp"
+        android:layout_marginBottom="80dp"
         android:padding="16dp">
 
         <LinearLayout
@@ -76,38 +77,41 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Action Buttons -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center"
-                android:layout_marginTop="16dp">
-
-                <Button
-                    android:id="@+id/btnCancel"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Cancel"
-                    android:background="@drawable/button_beige_outline"
-                    android:textColor="@color/white"
-                    android:layout_marginEnd="8dp" />
-
-                <Button
-                    android:id="@+id/btnConfirmSelection"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Confirm Selection"
-                    android:background="@drawable/button_red_primary"
-                    android:textColor="@color/white"
-                    android:layout_marginStart="8dp"
-                    android:enabled="false" />
-
-            </LinearLayout>
-
         </LinearLayout>
     </ScrollView>
+
+    <!-- Action Buttons - Fixed at bottom -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_gravity="bottom"
+        android:background="@color/background_beige"
+        android:padding="16dp"
+        android:elevation="8dp">
+
+        <Button
+            android:id="@+id/btnCancel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Cancel"
+            android:background="@drawable/button_beige_outline"
+            android:textColor="@color/white"
+            android:layout_marginEnd="8dp" />
+
+        <Button
+            android:id="@+id/btnConfirmSelection"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Confirm Selection"
+            android:background="@drawable/button_red_primary"
+            android:textColor="@color/white"
+            android:layout_marginStart="8dp"
+            android:enabled="false" />
+
+    </LinearLayout>
 
 </FrameLayout>

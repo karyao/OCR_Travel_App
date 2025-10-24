@@ -209,14 +209,50 @@ class ImageProcessor {
     fun loadImageFromAssetsWithRotation(imageView: android.widget.ImageView, context: android.content.Context, assetName: String) {
         try {
             val inputStream = context.assets.open(assetName)
-            val bitmap = BitmapFactory.decodeStream(inputStream)
+            
+            // Create a temporary file to read EXIF data
+            val tempFile = File.createTempFile("temp_asset_", ".jpg", context.cacheDir)
+            tempFile.outputStream().use { outputStream ->
+                inputStream.copyTo(outputStream)
+            }
             inputStream.close()
             
+            // Get EXIF orientation from the temporary file
+            val exif = ExifInterface(tempFile.absolutePath)
+            val orientation = exif.getAttributeInt(
+                ExifInterface.TAG_ORIENTATION,
+                ExifInterface.ORIENTATION_UNDEFINED
+            )
+            
+            // Decode the bitmap
+            val bitmap = BitmapFactory.decodeFile(tempFile.absolutePath)
             if (bitmap != null) {
-                imageView.setImageBitmap(bitmap)
+                // Apply rotation based on EXIF orientation
+                val rotatedBitmap = rotateBitmap(bitmap, orientation)
+                imageView.setImageBitmap(rotatedBitmap)
+                
+                // Recycle the original bitmap if we created a rotated version
+                if (rotatedBitmap != bitmap) {
+                    bitmap.recycle()
+                }
             }
+            
+            // Clean up temporary file
+            tempFile.delete()
+            
         } catch (e: Exception) {
             android.util.Log.e("ImageProcessor", "Error loading asset image: ${e.message}")
+            // Fallback to regular loading
+            try {
+                val inputStream = context.assets.open(assetName)
+                val bitmap = BitmapFactory.decodeStream(inputStream)
+                inputStream.close()
+                if (bitmap != null) {
+                    imageView.setImageBitmap(bitmap)
+                }
+            } catch (fallbackException: Exception) {
+                android.util.Log.e("ImageProcessor", "Fallback asset loading also failed: ${fallbackException.message}")
+            }
         }
     }
     

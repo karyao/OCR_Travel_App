@@ -35,14 +35,14 @@ class TutorialFragment : Fragment(R.layout.fragment_tutorial) {
         TutorialStep(
             title = "Step 2: Get Translation & Pinyin",
             description = "The app will provide you with Pinyin pronunciation and English translation, making Chinese text accessible to you instantly.",
-            imageRes = "IMG_3849.JPG",
+            imageRes = "TranslationExample.png",
             stepNumber = 3,
             totalSteps = 4
         ),
         TutorialStep(
             title = "Step 3: Save with Location",
             description = "Your captured text is automatically saved with your current location, creating a personal travel journal of your Chinese learning journey.",
-            imageRes = "chinese_character.jpg",
+            imageRes = "LocationExample.png",
             stepNumber = 4,
             totalSteps = 4
         )

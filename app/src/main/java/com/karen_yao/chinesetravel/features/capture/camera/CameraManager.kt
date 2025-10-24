@@ -18,6 +18,7 @@ class CameraManager {
     private var cameraProvider: ProcessCameraProvider? = null
     private var preview: Preview? = null
     private var imageCapture: ImageCapture? = null
+    private var currentCameraSelector: CameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
 
     /**
      * Start the camera with preview.
@@ -39,7 +40,8 @@ class CameraManager {
                 cameraProvider = providerFuture.get()
                 setupCamera(context, previewView, lifecycleOwner, onImageCaptureReady)
             } catch (exception: Exception) {
-                // Handle camera setup error
+                android.util.Log.e("CameraManager", "Camera setup failed: ${exception.message}", exception)
+                android.widget.Toast.makeText(context, "Camera setup failed: ${exception.message}", android.widget.Toast.LENGTH_LONG).show()
             }
         }, ContextCompat.getMainExecutor(context))
     }
@@ -60,8 +62,8 @@ class CameraManager {
         // Create image capture
         imageCapture = ImageCapture.Builder().build()
 
-        // Select back camera
-        val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+        // Use the current camera selector
+        val cameraSelector = currentCameraSelector
 
         try {
             // Unbind use cases before rebinding
@@ -78,10 +80,46 @@ class CameraManager {
             // Notify that image capture is ready
             imageCapture?.let { onImageCaptureReady(it) }
         } catch (exception: Exception) {
-            // Handle camera binding error
+            android.util.Log.e("CameraManager", "Camera binding failed: ${exception.message}", exception)
+            android.widget.Toast.makeText(context, "Camera binding failed: ${exception.message}", android.widget.Toast.LENGTH_LONG).show()
         }
     }
 
+    /**
+     * Switch between front and back camera.
+     */
+    fun switchCamera(
+        context: Context,
+        previewView: PreviewView,
+        lifecycleOwner: LifecycleOwner,
+        onImageCaptureReady: (ImageCapture) -> Unit
+    ) {
+        currentCameraSelector = if (currentCameraSelector == CameraSelector.DEFAULT_BACK_CAMERA) {
+            CameraSelector.DEFAULT_FRONT_CAMERA
+        } else {
+            CameraSelector.DEFAULT_BACK_CAMERA
+        }
+        
+        // Switch camera
+        
+        // Restart camera with new selector
+        startCamera(context, previewView, lifecycleOwner, onImageCaptureReady)
+    }
+    
+    /**
+     * Check if camera is ready for capture.
+     */
+    fun isCameraReady(): Boolean {
+        return imageCapture != null && cameraProvider != null
+    }
+    
+    /**
+     * Get current camera facing direction.
+     */
+    fun isBackCamera(): Boolean {
+        return currentCameraSelector == CameraSelector.DEFAULT_BACK_CAMERA
+    }
+    
     /**
      * Stop the camera and release resources.
      */

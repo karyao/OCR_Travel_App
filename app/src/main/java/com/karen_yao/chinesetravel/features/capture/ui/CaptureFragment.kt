@@ -39,8 +39,8 @@ import java.util.Locale
 import android.util.Log
 
 /**
- * Fragment for capturing photos and processing Chinese text recognition.
- * Handles camera functionality, gallery selection, and OCR processing.
+ * Camera fragment for capturing and processing Chinese text.
+ * Features: Camera preview, photo capture, gallery selection, OCR processing.
  */
 class CaptureFragment : Fragment(R.layout.fragment_capture) {
 
@@ -50,11 +50,11 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
     }
     private val cameraManager = CameraManager()
     private val imageProcessor = ImageProcessor()
+    private var isBackCamera = true
 
-    // Photo picker for gallery selection
     private val pickImage = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) processGalleryUri(uri)
-        else Toast.makeText(requireContext(), "No image selected", Toast.LENGTH_SHORT).show()
+        else showMessage("No image selected")
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -63,6 +63,24 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
         setupHeader(view)
         askPermissions { startCamera(view.findViewById(R.id.previewView)) }
         setupButtons(view)
+    }
+    
+    override fun onResume() {
+        super.onResume()
+        // Ensure camera is running when fragment resumes
+        if (!cameraManager.isCameraReady()) {
+            val previewView = view?.findViewById<PreviewView>(R.id.previewView)
+            if (previewView != null) {
+                Log.d("CaptureFragment", "Camera not ready, restarting...")
+                startCamera(previewView)
+            }
+        }
+    }
+    
+    override fun onPause() {
+        super.onPause()
+        // Stop camera when fragment is paused to save resources
+        cameraManager.stopCamera()
     }
     
     private fun setupHeader(view: View) {
@@ -86,6 +104,16 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
         view.findViewById<Button>(R.id.btnGallery).setOnClickListener {
             pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
         }
+        view.findViewById<Button>(R.id.btnSwitchCamera).setOnClickListener { switchCamera() }
+        
+        // Update switch button text based on current camera
+        updateSwitchButtonText(view)
+    }
+    
+    private fun updateSwitchButtonText(view: View) {
+        val switchButton = view.findViewById<Button>(R.id.btnSwitchCamera)
+        val cameraIcon = if (isBackCamera) "📷" else "🤳"
+        switchButton.text = cameraIcon
     }
 
     private fun askPermissions(onGranted: () -> Unit) {
@@ -108,23 +136,92 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
     }
 
     private fun startCamera(previewView: PreviewView) {
+        if (!isCameraAvailable()) {
+            showMessage("Camera not available on this device")
+            return
+        }
+        
         cameraManager.startCamera(requireContext(), previewView, viewLifecycleOwner) { imageCapture ->
             this.imageCapture = imageCapture
+            showMessage("Camera ready! Point at Chinese text")
+        }
+        
+        setupCameraGestures(previewView)
+    }
+    
+    private fun setupCameraGestures(previewView: PreviewView) {
+        previewView.setOnTouchListener { _, event ->
+            if (event.action == android.view.MotionEvent.ACTION_UP) {
+                val currentTime = System.currentTimeMillis()
+                if (currentTime - lastTapTime < 300) { // Double tap within 300ms
+                    switchCamera()
+                }
+                lastTapTime = currentTime
+            }
+            false
+        }
+    }
+    
+    private var lastTapTime = 0L
+    
+    // Helper methods
+    private fun showMessage(message: String) {
+        Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
+    }
+    
+    private fun isCameraAvailable(): Boolean {
+        return requireContext().packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_CAMERA_ANY)
+    }
+    
+    private fun restartCamera() {
+        val previewView = view?.findViewById<PreviewView>(R.id.previewView)
+        if (previewView != null) {
+            startCamera(previewView)
+        }
+    }
+    
+    private fun switchCamera() {
+        val previewView = view?.findViewById<PreviewView>(R.id.previewView)
+        if (previewView != null) {
+            showMessage("Switching camera...")
+            
+            cameraManager.switchCamera(
+                requireContext(),
+                previewView,
+                viewLifecycleOwner
+            ) { imageCapture ->
+                this.imageCapture = imageCapture
+                isBackCamera = cameraManager.isBackCamera()
+                val cameraType = if (isBackCamera) "back" else "front"
+                showMessage("Switched to $cameraType camera")
+                view?.let { updateSwitchButtonText(it) }
+            }
         }
     }
 
     private fun takePhoto() {
+        if (!cameraManager.isCameraReady()) {
+            showMessage("Camera not ready. Please wait...")
+            return
+        }
+        
         val file = File(requireContext().cacheDir, "snap_${System.currentTimeMillis()}.jpg")
         val outputOptions = ImageCapture.OutputFileOptions.Builder(file).build()
+        
+        showMessage("Capturing photo...")
         
         imageCapture?.takePicture(
             outputOptions,
             ContextCompat.getMainExecutor(requireContext()),
             object : ImageCapture.OnImageSavedCallback {
                 override fun onError(exception: ImageCaptureException) {
-                    Toast.makeText(requireContext(), "Capture failed: ${exception.message}", Toast.LENGTH_SHORT).show()
+                    showMessage("Capture failed: ${exception.message}")
+                    if (exception.imageCaptureError == ImageCapture.ERROR_CAMERA_CLOSED) {
+                        restartCamera()
+                    }
                 }
                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                    showMessage("Photo captured! Processing...")
                     processCapturedFile(file)
                 }
             }
@@ -154,10 +251,7 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
     }
 
     private fun processImageWithOCR(image: InputImage, file: File, source: String) {
-        Toast.makeText(requireContext(), "Running OCR ($source)...", Toast.LENGTH_SHORT).show()
-
-        // Log image details for debugging
-        Log.d("CaptureFragment", "📸 Processing image: ${file.name}, size: ${file.length()} bytes")
+        showMessage("Running OCR ($source)...")
         
         // Use Google ML Kit for Chinese text recognition - SIMPLIFIED
         val recognizer = TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
@@ -166,48 +260,25 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
             try {
                 val result = recognizer.process(image).await()
                 val rawText = result.text
-                Log.d("CaptureFragment", "🔍 OCR text: $rawText")
                 
-                // SIMPLIFIED: Just get all non-empty lines
                 val allLines = rawText.lines()
                     .map { it.trim() }
                     .filter { it.isNotEmpty() }
                 
-                Log.d("CaptureFragment", "📝 All OCR lines found: $allLines")
-                
-                if (allLines.isEmpty()) {
-                    // No text detected at all - show crop suggestion
-                    Log.w("CaptureFragment", "⚠️ No text found in: $rawText")
-                    showNoTextDetectedDialog(file.absolutePath)
-                } else if (allLines.size > 1) {
-                    // Multiple lines detected - show selection screen
-                    Log.d("CaptureFragment", "📋 Showing ${allLines.size} lines for selection")
-                    showTextSelectionScreen(allLines, file.absolutePath)
-                } else {
-                    // Single line - process it directly (simplified quality check)
-                    val textToProcess = allLines.first()
-                    if (textToProcess.length >= 2) {
-                        processSelectedText(textToProcess, file)
-                    } else {
-                        Toast.makeText(requireContext(), "Text too short, please try again", Toast.LENGTH_SHORT).show()
+                when {
+                    allLines.isEmpty() -> showNoTextDetectedDialog(file.absolutePath)
+                    allLines.size > 1 -> showTextSelectionScreen(allLines, file.absolutePath)
+                    else -> {
+                        val textToProcess = allLines.first()
+                        if (textToProcess.length >= 2) {
+                            processSelectedText(textToProcess, file)
+                        } else {
+                            showMessage("Text too short, please try again")
+                        }
                     }
                 }
             } catch (exception: Exception) {
-                Log.e("CaptureFragment", "❌ OCR failed: ${exception.message}")
-                Toast.makeText(requireContext(), "OCR failed: ${exception.message}", Toast.LENGTH_LONG).show()
-                
-                // Show simple error dialog
-                val errorDialog = androidx.appcompat.app.AlertDialog.Builder(requireContext())
-                    .setTitle("🚨 OCR Error")
-                    .setMessage("Text recognition failed. Please try:\n• Taking a clearer photo\n• Better lighting\n• Retry with a different image")
-                    .setPositiveButton("Retry") { _, _ ->
-                        processImageWithOCR(image, file, source)
-                    }
-                    .setNegativeButton("Cancel") { _, _ ->
-                        requireActivity().onBackPressedDispatcher.onBackPressed()
-                    }
-                    .create()
-                errorDialog.show()
+                showMessage("OCR failed: ${exception.message}")
             }
         }
     }

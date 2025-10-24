@@ -37,10 +37,5 @@
             android:exported="true"
             android:label="Test Activity" />
             
-        <!-- PaddleOCR Test Activity -->
-        <activity
-            android:name=".features.capture.ocr.PaddleOCRTestActivity"
-            android:exported="true"
-            android:label="PaddleOCR Test" />
     </application>
 </manifest>

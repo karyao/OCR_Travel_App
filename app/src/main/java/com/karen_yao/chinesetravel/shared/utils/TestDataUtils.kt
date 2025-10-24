@@ -230,12 +230,13 @@ object TestDataUtils {
             "No Real Location"
         }
         
-        // Get Chinese text and pinyin based on image name
-        val (chineseText, pinyinText) = when (imageName) {
-            "chinese_character.jpg" -> Pair("欢迎光临", "huān yíng guāng lín")
-            "IMG_3849.JPG" -> Pair("餐厅", "cān tīng")
-            "IMG_3950.JPG" -> Pair("地铁站", "dì tiě zhàn")
-            else -> Pair("旅游景点", "lǚ yóu jǐng diǎn")
+        // Use real OCR instead of hardcoded fallback data
+        val ocrResult = runRealOCR(context, imagePath)
+        val chineseText = ocrResult.first
+        val pinyinText = if (chineseText.isNotEmpty()) {
+            com.karen_yao.chinesetravel.shared.utils.PinyinUtils.toPinyin(chineseText)
+        } else {
+            "No text detected"
         }
         
         // Get real translation using ML Kit Translate
@@ -244,7 +245,7 @@ object TestDataUtils {
             TranslationUtils.translateChineseToEnglish(chineseText)
         } catch (e: Exception) {
             Log.e(TAG, "❌ Translation failed: ${e.message}")
-            getFallbackTranslation(chineseText)
+            "Translation failed"
         }
         Log.d(TAG, "✅ Translation result: $realTranslation")
         
@@ -387,32 +388,6 @@ object TestDataUtils {
         }
     }
     
-    /**
-     * Fallback translation for common travel terms when ML Kit fails.
-     */
-    private fun getFallbackTranslation(text: String): String {
-        return when (text) {
-            "欢迎光临" -> "Welcome (fallback)"
-            "餐厅" -> "Restaurant (fallback)"
-            "地铁站" -> "Subway Station (fallback)"
-            "旅游景点" -> "Tourist Attraction (fallback)"
-            "银行" -> "Bank (fallback)"
-            "医院" -> "Hospital (fallback)"
-            "商店" -> "Shop (fallback)"
-            "市场" -> "Market (fallback)"
-            "酒店" -> "Hotel (fallback)"
-            "机场" -> "Airport (fallback)"
-            "火车站" -> "Train Station (fallback)"
-            "公交站" -> "Bus Stop (fallback)"
-            "厕所" -> "Restroom (fallback)"
-            "出口" -> "Exit (fallback)"
-            "入口" -> "Entrance (fallback)"
-            "左转" -> "Turn Left (fallback)"
-            "右转" -> "Turn Right (fallback)"
-            "直走" -> "Go Straight (fallback)"
-            else -> "Translation unavailable (fallback)"
-        }
-    }
 
     /**
      * Create a test PlaceSnap entry for testing purposes.
@@ -421,50 +396,32 @@ object TestDataUtils {
      * @param imagePath Path to the exported image file
      * @return PlaceSnap object with test data
      */
-    private fun createTestPlaceSnap(imageName: String, imagePath: String): PlaceSnap {
-        // Create unique test data based on image name
-        val testData = when (imageName) {
-            "chinese_character.jpg" -> TestData(
-                chinese = "测试字符",
-                pinyin = "ce shi zi fu",
-                lat = 39.9042,
-                lng = 116.4074,
-                address = "北京市, 中国",
-                translation = "Test Character"
-            )
-            "IMG_3849.JPG" -> TestData(
-                chinese = "餐厅",
-                pinyin = "cān tīng", 
-                lat = 31.2304,
-                lng = 121.4737,
-                address = "上海市, 中国",
-                translation = "Restaurant"
-            )
-            "IMG_3950.JPG" -> TestData(
-                chinese = "地铁站",
-                pinyin = "dì tiě zhàn", 
-                lat = 22.3193,
-                lng = 114.1694,
-                address = "香港, 中国",
-                translation = "Subway Station"
-            )
-            "IMG_3950.JPG" -> TestData(
-                chinese = "样本测试",
-                pinyin = "yang ben ce shi",
-                lat = 22.3193,
-                lng = 114.1694,
-                address = "香港, 中国",
-                translation = "Sample Test"
-            )
-            else -> TestData(
-                chinese = "默认测试",
-                pinyin = "mo ren ce shi",
-                lat = 39.9042,
-                lng = 116.4074,
-                address = "北京市, 中国",
-                translation = "Default Test"
-            )
+    private suspend fun createTestPlaceSnap(context: Context, imageName: String, imagePath: String): PlaceSnap {
+        // Use real OCR instead of hardcoded test data
+        val ocrResult = runRealOCR(context, imagePath)
+        val chineseText = ocrResult.first
+        val pinyinText = if (chineseText.isNotEmpty()) {
+            com.karen_yao.chinesetravel.shared.utils.PinyinUtils.toPinyin(chineseText)
+        } else {
+            "No text detected"
         }
+        
+        // Get real translation using ML Kit Translate
+        val realTranslation = try {
+            com.karen_yao.chinesetravel.shared.utils.TranslationUtils.translateChineseToEnglish(chineseText)
+        } catch (e: Exception) {
+            "Translation failed"
+        }
+        
+        // Use default coordinates (Beijing) for test data
+        val testData = TestData(
+            chinese = chineseText,
+            pinyin = pinyinText,
+            lat = 39.9042,
+            lng = 116.4074,
+            address = "Test Location",
+            translation = realTranslation
+        )
         
         return PlaceSnap(
             imagePath = imagePath,

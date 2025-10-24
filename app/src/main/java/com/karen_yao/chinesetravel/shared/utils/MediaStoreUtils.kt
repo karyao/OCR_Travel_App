@@ -21,7 +21,7 @@ object MediaStoreUtils {
      * Export a single asset by name to the device gallery.
      * 
      * @param context Application context
-     * @param assetName Name of the asset file (e.g., "sample1.jpg")
+     * @param assetName Name of the asset file (e.g., "IMG_3693.JPG")
      * @return URI of the exported file, or null if export failed
      */
     fun exportOneAssetToGallery(context: Context, assetName: String): Uri? {

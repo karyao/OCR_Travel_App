@@ -21,8 +21,8 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.google.mlkit.vision.common.InputImage
-import com.karen_yao.chinesetravel.features.capture.ocr.PaddleOCRService
-import com.karen_yao.chinesetravel.features.capture.ocr.PaddleOCRServiceImpl
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
 import com.karen_yao.chinesetravel.R
 import com.karen_yao.chinesetravel.features.capture.camera.CameraManager
 import com.karen_yao.chinesetravel.features.capture.camera.ImageProcessor
@@ -30,6 +30,7 @@ import com.karen_yao.chinesetravel.features.textselection.ui.TextSelectionFragme
 import com.karen_yao.chinesetravel.shared.extensions.repo
 import com.karen_yao.chinesetravel.shared.utils.PinyinUtils
 import com.karen_yao.chinesetravel.shared.utils.TranslationUtils
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -49,7 +50,6 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
     }
     private val cameraManager = CameraManager()
     private val imageProcessor = ImageProcessor()
-    private val paddleOCRService: PaddleOCRService = PaddleOCRServiceImpl()
 
     // Photo picker for gallery selection
     private val pickImage = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -132,9 +132,12 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
     }
 
     private fun processCapturedFile(file: File) {
-        val bitmap = BitmapFactory.decodeFile(file.absolutePath)
+        // Preprocess image for better OCR accuracy
+        val preprocessedFile = imageProcessor.preprocessImageForOCR(file)
+        
+        val bitmap = BitmapFactory.decodeFile(preprocessedFile.absolutePath)
         val image = InputImage.fromBitmap(bitmap, 0)
-        processImageWithOCR(image, file, "camera")
+        processImageWithOCR(image, file, "camera") // Use original file for database storage
     }
 
     private fun processGalleryUri(uri: Uri) {
@@ -142,81 +145,65 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
         requireContext().contentResolver.openInputStream(uri)?.use { inputStream ->
             file.outputStream().use { outputStream -> inputStream.copyTo(outputStream) }
         }
-        val image = InputImage.fromFilePath(requireContext(), uri)
-        processImageWithOCR(image, file, "gallery")
+        
+        // Preprocess image for better OCR accuracy
+        val preprocessedFile = imageProcessor.preprocessImageForOCR(file)
+        
+        val image = InputImage.fromFilePath(requireContext(), android.net.Uri.fromFile(preprocessedFile))
+        processImageWithOCR(image, file, "gallery") // Use original file for database storage
     }
 
     private fun processImageWithOCR(image: InputImage, file: File, source: String) {
-        Toast.makeText(requireContext(), "Running PaddleOCR ($source)...", Toast.LENGTH_SHORT).show()
+        Toast.makeText(requireContext(), "Running OCR ($source)...", Toast.LENGTH_SHORT).show()
 
         // Log image details for debugging
         Log.d("CaptureFragment", "📸 Processing image: ${file.name}, size: ${file.length()} bytes")
         
-        // Use PaddleOCR for Chinese text recognition
+        // Use Google ML Kit for Chinese text recognition - SIMPLIFIED
+        val recognizer = TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
+        
         lifecycleScope.launch {
             try {
-                paddleOCRService.recognizeText(image).collect { rawText ->
-                    Log.d("CaptureFragment", "🔍 PaddleOCR text: $rawText")
-                    
-                    // Get ALL lines from OCR (not just Chinese ones)
-                    val allLines = rawText.lines()
-                        .map { it.trim() }
-                        .filter { it.isNotEmpty() }
-                    
-                    Log.d("CaptureFragment", "📝 All OCR lines found: $allLines")
-                    Log.d("CaptureFragment", "📊 Total lines: ${allLines.size}")
-                    
-                    // Enhanced Chinese text extraction
-                    val chineseLines = extractAllChineseLinesEnhanced(rawText)
-                    Log.d("CaptureFragment", "🔤 Chinese lines found: $chineseLines")
-                    
-                    if (chineseLines.isEmpty()) {
-                        // No Chinese text detected - check if we have any text at all
-                        if (allLines.isNotEmpty()) {
-                            Log.d("CaptureFragment", "⚠️ No Chinese characters found, showing all lines for selection")
-                            showTextSelectionScreen(allLines, file.absolutePath)
-                        } else {
-                            // No text detected at all - show crop suggestion
-                            Log.w("CaptureFragment", "⚠️ No text found in: $rawText")
-                            showNoTextDetectedDialog(file.absolutePath)
-                        }
-                    } else if (chineseLines.size > 1) {
-                        // Multiple Chinese lines detected - show selection screen
-                        showTextSelectionScreen(chineseLines, file.absolutePath)
-                    } else if (allLines.size > 1) {
-                        // Multiple lines detected (including non-Chinese) - show ALL lines for selection
-                        Log.d("CaptureFragment", "📋 Showing all ${allLines.size} lines for selection")
-                        showTextSelectionScreen(allLines, file.absolutePath)
+                val result = recognizer.process(image).await()
+                val rawText = result.text
+                Log.d("CaptureFragment", "🔍 OCR text: $rawText")
+                
+                // SIMPLIFIED: Just get all non-empty lines
+                val allLines = rawText.lines()
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+                
+                Log.d("CaptureFragment", "📝 All OCR lines found: $allLines")
+                
+                if (allLines.isEmpty()) {
+                    // No text detected at all - show crop suggestion
+                    Log.w("CaptureFragment", "⚠️ No text found in: $rawText")
+                    showNoTextDetectedDialog(file.absolutePath)
+                } else if (allLines.size > 1) {
+                    // Multiple lines detected - show selection screen
+                    Log.d("CaptureFragment", "📋 Showing ${allLines.size} lines for selection")
+                    showTextSelectionScreen(allLines, file.absolutePath)
+                } else {
+                    // Single line - process it directly (simplified quality check)
+                    val textToProcess = allLines.first()
+                    if (textToProcess.length >= 2) {
+                        processSelectedText(textToProcess, file)
                     } else {
-                        // Single line - check if it's good quality Chinese text
-                        val textToProcess = chineseLines.firstOrNull() ?: allLines.firstOrNull() ?: ""
-                        if (textToProcess.isNotEmpty()) {
-                            // Check if the Chinese text quality is good
-                            if (isGoodQualityChineseText(textToProcess)) {
-                                processSelectedText(textToProcess, file)
-                            } else {
-                                // Poor quality Chinese text - suggest retry
-                                showPoorQualityTextDialog(textToProcess, file.absolutePath)
-                            }
-                        } else {
-                            Toast.makeText(requireContext(), "No text to process", Toast.LENGTH_SHORT).show()
-                        }
+                        Toast.makeText(requireContext(), "Text too short, please try again", Toast.LENGTH_SHORT).show()
                     }
                 }
             } catch (exception: Exception) {
-                Log.e("CaptureFragment", "❌ PaddleOCR failed: ${exception.message}")
-                Toast.makeText(requireContext(), "PaddleOCR API failed: ${exception.message}", Toast.LENGTH_LONG).show()
+                Log.e("CaptureFragment", "❌ OCR failed: ${exception.message}")
+                Toast.makeText(requireContext(), "OCR failed: ${exception.message}", Toast.LENGTH_LONG).show()
                 
-                // Show detailed error information
+                // Show simple error dialog
                 val errorDialog = androidx.appcompat.app.AlertDialog.Builder(requireContext())
-                    .setTitle("🚨 PaddleOCR API Error")
-                    .setMessage("PaddleOCR API is not available:\n\n${exception.message}\n\nPlease check:\n• Internet connection\n• API endpoint configuration\n• API key (if required)")
+                    .setTitle("🚨 OCR Error")
+                    .setMessage("Text recognition failed. Please try:\n• Taking a clearer photo\n• Better lighting\n• Retry with a different image")
                     .setPositiveButton("Retry") { _, _ ->
-                        // Retry the same image
                         processImageWithOCR(image, file, source)
                     }
                     .setNegativeButton("Cancel") { _, _ ->
-                        // Go back to capture screen
                         requireActivity().onBackPressedDispatcher.onBackPressed()
                     }
                     .create()
@@ -225,72 +212,8 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
         }
     }
 
-    private fun extractAllChineseLines(allText: String): List<String> {
-        return allText.lines()
-            .filter { line -> 
-                line.trim().isNotEmpty() &&
-                line.any { it.toString().matches(Regex("[\\p{IsHan}]")) }
-            }
-            .map { it.trim() }
-    }
-    
-    /**
-     * Enhanced Chinese text extraction with better detection patterns.
-     * Handles various Chinese text formats and mixed content.
-     */
-    private fun extractAllChineseLinesEnhanced(allText: String): List<String> {
-        return allText.lines()
-            .map { line -> line.trim() }
-            .filter { line -> 
-                line.isNotEmpty() && hasChineseCharacters(line)
-            }
-            .map { line -> cleanChineseText(line) }
-            .filter { line -> line.isNotEmpty() }
-    }
-    
-    /**
-     * Check if a line contains Chinese characters.
-     * Uses multiple detection patterns for better accuracy.
-     */
-    private fun hasChineseCharacters(text: String): Boolean {
-        // Pattern 1: Standard Han characters
-        if (text.any { it.toString().matches(Regex("[\\p{IsHan}]")) }) {
-            return true
-        }
-        
-        // Pattern 2: CJK Unified Ideographs
-        if (text.any { it.toString().matches(Regex("[\\u4e00-\\u9fff]")) }) {
-            return true
-        }
-        
-        // Pattern 3: Common Chinese punctuation and symbols
-        if (text.any { it.toString().matches(Regex("[\\u3000-\\u303f\\u3100-\\u312f]")) }) {
-            return true
-        }
-        
-        return false
-    }
-    
-    /**
-     * Clean and normalize Chinese text.
-     * Removes common OCR artifacts and normalizes spacing.
-     */
-    private fun cleanChineseText(text: String): String {
-        return text
-            // Remove common OCR artifacts
-            .replace(Regex("[\\u200b-\\u200d\\ufeff]"), "") // Zero-width characters
-            .replace(Regex("[\\u00a0]"), " ") // Non-breaking spaces
-            // Normalize multiple spaces
-            .replace(Regex("\\s+"), " ")
-            // Remove leading/trailing whitespace
-            .trim()
-            // Remove lines that are too short (likely noise)
-            .takeIf { it.length >= 1 }
-            ?: ""
-    }
-
-    private fun extractBestChineseLine(allText: String): String =
-        extractAllChineseLines(allText).firstOrNull() ?: ""
+    // REMOVED: Complex Chinese text extraction functions that were causing issues
+    // Now using simplified approach - let ML Kit do its job and trust the results
 
     private fun showTextSelectionScreen(chineseLines: List<String>, imagePath: String) {
         val textSelectionFragment = TextSelectionFragment.newInstance(
@@ -334,24 +257,8 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
         }
     }
     
-    /**
-     * Checks if the detected Chinese text is of good quality.
-     * Returns true if the text appears to be clear and well-formed.
-     */
-    private fun isGoodQualityChineseText(text: String): Boolean {
-        // Check for common OCR artifacts that indicate poor quality
-        val hasArtifacts = text.contains(Regex("[\\u200b-\\u200d\\ufeff]")) || // Zero-width characters
-                          text.contains(Regex("[\\u00a0]")) || // Non-breaking spaces
-                          text.contains(Regex("\\s{2,}")) || // Multiple spaces
-                          text.length < 2 || // Too short
-                          text.contains(Regex("[^\\p{IsHan}\\p{IsPunctuation}\\s]")) // Non-Chinese characters mixed in
-        
-        // Check if text has reasonable Chinese character density
-        val chineseCharCount = text.count { it.toString().matches(Regex("[\\p{IsHan}]")) }
-        val chineseRatio = if (text.isNotEmpty()) chineseCharCount.toFloat() / text.length else 0f
-        
-        return !hasArtifacts && chineseRatio > 0.5f && text.length >= 2
-    }
+    // REMOVED: Overly strict quality check that was rejecting valid Chinese text
+    // Now using simple length check (>= 2 characters) instead
     
     /**
      * Shows a dialog when poor quality Chinese text is detected, suggesting the user try a better image.

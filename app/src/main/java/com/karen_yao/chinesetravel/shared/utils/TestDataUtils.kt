@@ -31,7 +31,7 @@ object TestDataUtils {
     private val testImages = listOf(
         "chinese_character.jpg",
         "IMG_3849.JPG", 
-        "sample1.jpg"
+        "IMG_3950.JPG"
     )
     
     /**
@@ -218,7 +218,7 @@ object TestDataUtils {
             when (imageName) {
                 "chinese_character.jpg" -> Pair(39.9042, 116.4074) // Beijing
                 "IMG_3849.JPG" -> Pair(31.2304, 121.4737) // Shanghai
-                "sample1.jpg" -> Pair(22.3193, 114.1694) // Hong Kong
+                "IMG_3950.JPG" -> Pair(22.3193, 114.1694) // Hong Kong
                 else -> Pair(39.9042, 116.4074) // Default to Beijing
             }
         }
@@ -234,7 +234,7 @@ object TestDataUtils {
         val (chineseText, pinyinText) = when (imageName) {
             "chinese_character.jpg" -> Pair("欢迎光临", "huān yíng guāng lín")
             "IMG_3849.JPG" -> Pair("餐厅", "cān tīng")
-            "sample1.jpg" -> Pair("地铁站", "dì tiě zhàn")
+            "IMG_3950.JPG" -> Pair("地铁站", "dì tiě zhàn")
             else -> Pair("旅游景点", "lǚ yóu jǐng diǎn")
         }
         
@@ -433,14 +433,22 @@ object TestDataUtils {
                 translation = "Test Character"
             )
             "IMG_3849.JPG" -> TestData(
-                chinese = "测试图片",
-                pinyin = "ce shi tu pian", 
+                chinese = "餐厅",
+                pinyin = "cān tīng", 
                 lat = 31.2304,
                 lng = 121.4737,
                 address = "上海市, 中国",
-                translation = "Test Image"
+                translation = "Restaurant"
             )
-            "sample1.jpg" -> TestData(
+            "IMG_3950.JPG" -> TestData(
+                chinese = "地铁站",
+                pinyin = "dì tiě zhàn", 
+                lat = 22.3193,
+                lng = 114.1694,
+                address = "香港, 中国",
+                translation = "Subway Station"
+            )
+            "IMG_3950.JPG" -> TestData(
                 chinese = "样本测试",
                 pinyin = "yang ben ce shi",
                 lat = 22.3193,

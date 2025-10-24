@@ -5,13 +5,10 @@ import android.view.View
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
-import android.widget.Toast
 import androidx.fragment.app.Fragment
 import com.karen_yao.chinesetravel.R
 import com.karen_yao.chinesetravel.features.home.ui.HomeFragment
-import com.karen_yao.chinesetravel.features.capture.ui.CaptureFragment
 import com.karen_yao.chinesetravel.features.welcome.ui.WelcomeFragment
-import java.io.File
 
 /**
  * TutorialFragment provides a step-by-step guide on how to use the Chinese Travel app.
@@ -31,7 +28,7 @@ class TutorialFragment : Fragment(R.layout.fragment_tutorial) {
         TutorialStep(
             title = "Step 1: Capture Chinese Text",
             description = "Point your camera at any Chinese text names. The app will automatically detect and recognize the text using AI.",
-            imageRes = "sample1.jpg",
+            imageRes = "IMG_3950.JPG",
             stepNumber = 2,
             totalSteps = 4
         ),

@@ -69,17 +69,15 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:1.3.4")
     implementation("androidx.camera:camera-view:1.3.4")
 
-    // --- PaddleOCR for Chinese text recognition ---
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("com.squareup.retrofit2:retrofit:2.9.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
-    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
-    
-    // --- ML Kit for InputImage (camera integration) ---
+    // --- ML Kit for Chinese text recognition ---
     implementation("com.google.mlkit:vision-common:17.3.0")
+    implementation("com.google.mlkit:text-recognition-chinese:16.0.1")
     
     // --- ML Kit Translate (on-device) - keeping for translation ---
     implementation("com.google.mlkit:translate:17.0.1")
+    
+    // --- Coroutines for ML Kit tasks ---
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
 
     // --- EXIF metadata (GPS from photo) ---
     implementation("androidx.exifinterface:exifinterface:1.3.7")

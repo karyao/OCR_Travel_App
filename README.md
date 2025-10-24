@@ -70,7 +70,6 @@ When I went back to China, I visited so many places but couldn't remember their 
 
 ### **Cool Features I Added**
 
-- **Gesture Controls** - Double-tap to switch cameras
 - **Smart Text Selection** - Choose which lines to translate when multiple detected
 - **Location Memory** - Every translation remembers where you took it
 - **Google Maps Integration** - Tap to navigate back to places you've been
@@ -88,6 +87,9 @@ Everything is processed on your device when possible - only translation uses Goo
 ## 🚀 What I'd Add Next
 
 - Add a new page with a visible map to showcase pins on where you have travelled
-- Support for other languages (Japanese, Korean)
+- Support for other languages
+- Expand it to a guide to China
 - Share your travel discoveries with friends
 - Better image processing for tricky lighting
+
+### Demo Slides: https://www.canva.com/design/DAG2qomCLng/9fsaEYu4gz9h0B8irsffUw/view?utm_content=DAG2qomCLng&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=hda107d5dc7 

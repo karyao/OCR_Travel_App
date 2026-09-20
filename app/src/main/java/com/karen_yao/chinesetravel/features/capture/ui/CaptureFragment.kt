@@ -57,6 +57,18 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
         else showMessage("No image selected")
     }
 
+    private var pendingOnGranted: (() -> Unit)? = null
+    private val permissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
+            if (!isAdded) {
+                pendingOnGranted = null
+                return@registerForActivityResult
+            }
+            if (results.values.all { it }) pendingOnGranted?.invoke()
+            else Toast.makeText(requireContext(), "Permissions required", Toast.LENGTH_SHORT).show()
+            pendingOnGranted = null
+        }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
@@ -81,6 +93,11 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
         super.onPause()
         // Stop camera when fragment is paused to save resources
         cameraManager.stopCamera()
+    }
+
+    override fun onDestroyView() {
+        pendingOnGranted = null
+        super.onDestroyView()
     }
     
     private fun setupHeader(view: View) {
@@ -124,14 +141,12 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
         ).filter {
             ContextCompat.checkSelfPermission(requireContext(), it) != PackageManager.PERMISSION_GRANTED
         }
-        
+
         if (neededPermissions.isEmpty()) {
             onGranted()
         } else {
-            registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
-                if (results.values.all { it }) onGranted()
-                else Toast.makeText(requireContext(), "Permissions required", Toast.LENGTH_SHORT).show()
-            }.launch(neededPermissions.toTypedArray())
+            pendingOnGranted = onGranted
+            permissionLauncher.launch(neededPermissions.toTypedArray())
         }
     }
 

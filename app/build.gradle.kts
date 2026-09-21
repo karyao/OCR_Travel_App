@@ -52,6 +52,7 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation("androidx.room:room-testing:2.6.1")
 
     // --- MVVM / UI helpers ---
     implementation("androidx.recyclerview:recyclerview:1.3.2")
@@ -87,4 +88,7 @@ dependencies {
 
     // --- Offline Pinyin conversion ---
     // implementation("com.github.promeg:tinypinyin:2.0.3")
+
+    // --- OpenStreetMap map view ---
+    implementation("org.osmdroid:osmdroid-android:6.1.18")
 }

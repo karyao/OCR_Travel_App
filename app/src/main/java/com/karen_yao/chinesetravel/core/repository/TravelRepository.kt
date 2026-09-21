@@ -33,4 +33,9 @@ class TravelRepository(private val database: AppDatabase) {
      * Delete a specific snap from the database.
      */
     suspend fun deleteSnap(snap: PlaceSnap) = database.placeSnapDao().delete(snap)
+
+    /**
+     * Get all snaps with valid GPS coordinates for map display.
+     */
+    fun getSnapsWithLocation() = database.placeSnapDao().snapsWithLocation()
 }

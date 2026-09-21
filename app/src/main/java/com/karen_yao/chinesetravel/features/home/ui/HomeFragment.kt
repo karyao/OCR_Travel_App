@@ -10,6 +10,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.karen_yao.chinesetravel.R
 import com.karen_yao.chinesetravel.features.capture.ui.CaptureFragment
+import com.karen_yao.chinesetravel.features.map.ui.MapFragment
 import com.karen_yao.chinesetravel.features.welcome.ui.WelcomeFragment
 import com.karen_yao.chinesetravel.shared.extensions.repo
 import com.karen_yao.chinesetravel.shared.utils.TestDataUtils
@@ -45,6 +46,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         
         setupRecyclerView(view)
         setupFloatingActionButton(view)
+        setupMapButton(view)
         setupTestButton(view)
         setupBackButton(view)
         setupClearButton(view)
@@ -77,6 +79,15 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         }
     }
 
+    private fun setupMapButton(view: View) {
+        view.findViewById<FloatingActionButton>(R.id.fabMap).setOnClickListener {
+            parentFragmentManager.beginTransaction()
+                .replace(R.id.container, MapFragment())
+                .addToBackStack(null)
+                .commit()
+        }
+    }
+
     private var isSpinnerInitialized = false
     
     private fun setupTestButton(view: View) {
@@ -85,7 +96,8 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         // Create test options
         val testOptions = listOf(
             "Select a test feature...",
-            "🧪 Test Database Storage",
+            "🧪 Test Real Image Pipeline",
+            "🗺️ Seed Map Demo Data",
             "📸 Test OCR 1 (IMG_3950.JPG)",
             "📸 Test OCR 2 (TEST2.png)"
         )
@@ -106,17 +118,25 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
                 
                 when (position) {
                     1 -> {
-                        Log.d("HomeFragment", "Running database storage test...")
-                        runTestExport()
+                        Log.d("HomeFragment", "Running real image pipeline test...")
+                        runRealImagePipelineTest()
                     }
                     2 -> {
+                        Log.d("HomeFragment", "Seeding map demo data...")
+                        seedMapDemoData()
+                    }
+                    3 -> {
                         Log.d("HomeFragment", "Running OCR test 1...")
                         testTextSelectionWithSample1()
                     }
-                    3 -> {
+                    4 -> {
                         Log.d("HomeFragment", "Running OCR test 2...")
                         testTextSelectionWithSample2()
                     }
+                }
+
+                if (position != 0) {
+                    parent?.setSelection(0)
                 }
             }
             
@@ -126,27 +146,38 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         }
     }
 
-    private fun runTestExport() {
-        // Show immediate feedback
-        Log.d("HomeFragment", "Starting database storage test...")
+    private fun runRealImagePipelineTest() {
+        Log.d("HomeFragment", "Starting real image pipeline test...")
 
-        // Show a toast to indicate test is running
-        android.widget.Toast.makeText(
+        Toast.makeText(
             requireContext(),
-            "🧪 Testing database storage with 3 sample images...",
-            android.widget.Toast.LENGTH_SHORT
+            "🧪 Processing 3 images with their real EXIF data...",
+            Toast.LENGTH_SHORT
         ).show()
 
-        // Run the test export
-        TestDataUtils.exportAndTestImages(requireContext(), repo())
-
-        // Show a follow-up toast after a delay
+        val context = requireContext().applicationContext
+        val repository = repo()
         viewLifecycleOwner.lifecycleScope.launch {
-            kotlinx.coroutines.delay(3000)
-            android.widget.Toast.makeText(
-                requireContext(),
-                "✅ Database test completed! Check home screen for new entries.",
-                android.widget.Toast.LENGTH_LONG
+            val summary = TestDataUtils.exportAndTestImages(context, repository)
+            Toast.makeText(
+                context,
+                "✅ Inserted ${summary.inserted}/${summary.processed}: " +
+                    "${summary.located} located, ${summary.unlocated} unlocated, " +
+                    "${summary.failed} failed.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    private fun seedMapDemoData() {
+        val context = requireContext().applicationContext
+        val repository = repo()
+        viewLifecycleOwner.lifecycleScope.launch {
+            val seededCount = TestDataUtils.seedMapDemoData(repository)
+            Toast.makeText(
+                context,
+                "✅ Seeded $seededCount demo records: 3 mapped, 1 unmapped.",
+                Toast.LENGTH_LONG
             ).show()
         }
     }

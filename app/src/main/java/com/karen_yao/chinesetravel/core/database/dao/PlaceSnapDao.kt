@@ -30,4 +30,15 @@ interface PlaceSnapDao {
     /** Clear all snaps from the database. */
     @Query("DELETE FROM PlaceSnap")
     suspend fun clearAll()
+
+    /** Get all snaps that have valid GPS coordinates for map display. */
+    @Query(
+        """
+        SELECT * FROM PlaceSnap
+        WHERE lat BETWEEN -90.0 AND 90.0
+          AND longitude BETWEEN -180.0 AND 180.0
+        ORDER BY createdAt DESC
+        """
+    )
+    fun snapsWithLocation(): Flow<List<PlaceSnap>>
 }

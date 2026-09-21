@@ -33,6 +33,84 @@ object TestDataUtils {
         "IMG_3849.JPG", 
         "IMG_3950.JPG"
     )
+
+    internal data class TestRunSummary(
+        val processed: Int,
+        val inserted: Int,
+        val located: Int,
+        val unlocated: Int,
+        val failed: Int
+    )
+
+    private const val MAP_FIXTURE_ID_PREFIX = "test-map-fixture-"
+
+    /**
+     * Deterministic records for exercising map behavior without OCR, geocoding, or network work.
+     * The unlocated control record must remain absent from the map.
+     */
+    internal fun createMapDemoFixtures(createdAt: Long = System.currentTimeMillis()): List<PlaceSnap> =
+        listOf(
+            PlaceSnap(
+                id = "${MAP_FIXTURE_ID_PREFIX}beijing",
+                imagePath = "",
+                nameCn = "北京",
+                namePinyin = "Běijīng",
+                lat = 39.9042,
+                longitude = 116.4074,
+                address = "Beijing, China",
+                translation = "Beijing",
+                googleMapsLink = "https://www.google.com/maps/search/?api=1&query=39.9042,116.4074",
+                createdAt = createdAt
+            ),
+            PlaceSnap(
+                id = "${MAP_FIXTURE_ID_PREFIX}shanghai",
+                imagePath = "",
+                nameCn = "上海",
+                namePinyin = "Shànghǎi",
+                lat = 31.2304,
+                longitude = 121.4737,
+                address = "Shanghai, China",
+                translation = "Shanghai",
+                googleMapsLink = "https://www.google.com/maps/search/?api=1&query=31.2304,121.4737",
+                createdAt = createdAt - 1
+            ),
+            PlaceSnap(
+                id = "${MAP_FIXTURE_ID_PREFIX}hong-kong",
+                imagePath = "",
+                nameCn = "香港",
+                namePinyin = "Xiānggǎng",
+                lat = 22.3193,
+                longitude = 114.1694,
+                address = "Hong Kong",
+                translation = "Hong Kong",
+                googleMapsLink = "https://www.google.com/maps/search/?api=1&query=22.3193,114.1694",
+                createdAt = createdAt - 2
+            ),
+            PlaceSnap(
+                id = "${MAP_FIXTURE_ID_PREFIX}unlocated",
+                imagePath = "",
+                nameCn = "无位置",
+                namePinyin = "Wú wèizhì",
+                lat = null,
+                longitude = null,
+                address = null,
+                translation = "No location",
+                googleMapsLink = null,
+                createdAt = createdAt - 3
+            )
+        )
+
+    /**
+     * Replace only the stable map fixtures, preserving every non-fixture database record.
+     */
+    internal suspend fun seedMapDemoData(repository: TravelRepository): Int {
+        val fixtures = createMapDemoFixtures()
+        fixtures.forEach { fixture ->
+            repository.deleteSnap(fixture)
+            repository.saveSnap(fixture)
+        }
+        return fixtures.size
+    }
     
     /**
      * Get real address from coordinates using reverse geocoding.
@@ -86,84 +164,76 @@ object TestDataUtils {
      * @param context Application context
      * @param repository TravelRepository for saving test data
      */
-    fun exportAndTestImages(context: Context, repository: TravelRepository) {
-        CoroutineScope(Dispatchers.IO).launch {
-            Log.d(TAG, "🚀 Starting test image export and processing...")
-            Log.d(TAG, "📋 Test images to process: $testImages")
-            
-            var successCount = 0
-            var totalCount = 0
-            var withLocationCount = 0
-            
-            for (imageName in testImages) {
-                try {
-                    Log.d(TAG, "📸 Processing test image: $imageName")
-                    
-                    // Export image from assets to device storage
-                    val exportedFile = exportImageFromAssets(context, imageName)
-                    if (exportedFile != null) {
-                        Log.d(TAG, "✅ Successfully exported: ${exportedFile.absolutePath}")
-                        Log.d(TAG, "📏 File size: ${exportedFile.length()} bytes")
-                        // Check if the image has real location data
-                        val imageProcessor = ImageProcessor()
-                        val hasLocation = imageProcessor.hasLocationData(exportedFile)
-                        val realLocation = imageProcessor.extractLocationFromFile(exportedFile)
-                        
-                        Log.d(TAG, "🔍 Location check for $imageName: hasLocation=$hasLocation, realLocation=$realLocation")
-                        
-                        // Create a test PlaceSnap entry with real or fallback data
-                        val testSnap = if (imageName == "chinese_character.jpg") {
-                            // Use real OCR for chinese_character.jpg
-                            createTestPlaceSnapWithRealOCR(
-                                imageName,
-                                exportedFile.absolutePath,
-                                hasLocation,
-                                realLocation,
-                                context
-                            )
-                        } else {
-                            // Use fallback data for other images
-                            createTestPlaceSnapWithRealData(
-                                imageName, 
-                                exportedFile.absolutePath, 
-                                hasLocation, 
-                                realLocation,
-                                context
-                            )
-                        }
-                        
-                        // Always save test images, but indicate location status
-                        repository.saveSnap(testSnap)
-                        
-                        if (hasLocation) {
-                            withLocationCount++
-                            Log.d(TAG, "✅ Successfully processed with REAL location: $imageName")
-                            Log.d(TAG, "   📍 Real GPS: ${testSnap.lat}, ${testSnap.longitude}")
-                        } else {
-                            Log.d(TAG, "⚠️ Processed with NO REAL LOCATION: $imageName")
-                            Log.d(TAG, "   📍 Using fallback coordinates: ${testSnap.lat}, ${testSnap.longitude}")
-                        }
-                        
-                        Log.d(TAG, "   🔗 Maps Link: ${testSnap.googleMapsLink}")
-                        Log.d(TAG, "   📝 Chinese: ${testSnap.nameCn}")
-                        Log.d(TAG, "   🔤 Pinyin: ${testSnap.namePinyin}")
-                        Log.d(TAG, "   🏠 Address: ${testSnap.address}")
-                        successCount++
+    internal suspend fun exportAndTestImages(
+        context: Context,
+        repository: TravelRepository
+    ): TestRunSummary = withContext(Dispatchers.IO) {
+        Log.d(TAG, "🚀 Starting test image export and processing...")
+        Log.d(TAG, "📋 Test images to process: $testImages")
+
+        var insertedCount = 0
+        var locatedCount = 0
+        var unlocatedCount = 0
+        var failedCount = 0
+
+        for (imageName in testImages) {
+            try {
+                Log.d(TAG, "📸 Processing test image: $imageName")
+
+                val exportedFile = exportImageFromAssets(context, imageName)
+                if (exportedFile != null) {
+                    Log.d(TAG, "✅ Successfully exported: ${exportedFile.absolutePath}")
+                    Log.d(TAG, "📏 File size: ${exportedFile.length()} bytes")
+                    val realLocation = ImageProcessor().extractLocationFromFile(exportedFile)
+
+                    Log.d(TAG, "🔍 Location check for $imageName: realLocation=$realLocation")
+
+                    val testSnap = createPlaceSnapFromRealImage(
+                        imagePath = exportedFile.absolutePath,
+                        realLocation = realLocation,
+                        context = context
+                    )
+
+                    repository.saveSnap(testSnap)
+                    insertedCount++
+
+                    if (realLocation != null) {
+                        locatedCount++
+                        Log.d(TAG, "✅ Successfully processed with REAL location: $imageName")
+                        Log.d(TAG, "   📍 Real GPS: ${testSnap.lat}, ${testSnap.longitude}")
                     } else {
-                        Log.w(TAG, "❌ Failed to export: $imageName")
+                        unlocatedCount++
+                        Log.d(TAG, "⚠️ Processed with NO REAL LOCATION: $imageName")
+                        Log.d(TAG, "   📍 Location fields stored as null")
                     }
-                    totalCount++
-                    
-                } catch (e: Exception) {
-                    Log.e(TAG, "💥 Error processing $imageName", e)
+
+                    Log.d(TAG, "   🔗 Maps Link: ${testSnap.googleMapsLink}")
+                    Log.d(TAG, "   📝 Chinese: ${testSnap.nameCn}")
+                    Log.d(TAG, "   🔤 Pinyin: ${testSnap.namePinyin}")
+                    Log.d(TAG, "   🏠 Address: ${testSnap.address}")
+                } else {
+                    failedCount++
+                    Log.w(TAG, "❌ Failed to export: $imageName")
                 }
+            } catch (e: Exception) {
+                failedCount++
+                Log.e(TAG, "💥 Error processing $imageName", e)
             }
-            
-            Log.d(TAG, "🎉 Test completed: $successCount/$totalCount images processed successfully")
-            Log.d(TAG, "📍 Images with REAL GPS location: $withLocationCount")
-            Log.d(TAG, "⚠️ Images with NO REAL LOCATION: ${totalCount - withLocationCount}")
-            Log.d(TAG, "📱 Check your home screen - new test entries should appear in the list!")
         }
+
+        val summary = TestRunSummary(
+            processed = testImages.size,
+            inserted = insertedCount,
+            located = locatedCount,
+            unlocated = unlocatedCount,
+            failed = failedCount
+        )
+        Log.d(TAG, "🎉 Test completed: ${summary.inserted}/${summary.processed} images inserted")
+        Log.d(TAG, "📍 Images with REAL GPS location: ${summary.located}")
+        Log.d(TAG, "⚠️ Images with NO REAL LOCATION: ${summary.unlocated}")
+        Log.d(TAG, "❌ Failed images: ${summary.failed}")
+        Log.d(TAG, "📱 Check your home screen - new test entries should appear in the list!")
+        summary
     }
     
     /**
@@ -193,53 +263,25 @@ object TestDataUtils {
         }
     }
     
-    /**
-     * Create a test PlaceSnap entry with real location data if available.
-     * 
-     * @param imageName Original image name
-     * @param imagePath Path to the exported image file
-     * @param hasLocation Whether the image has real location data
-     * @param realLocation Real location coordinates if available
-     * @param context Application context for geocoding
-     * @return PlaceSnap object with real or test data
-     */
-    private suspend fun createTestPlaceSnapWithRealData(
-        imageName: String, 
-        imagePath: String, 
-        hasLocation: Boolean, 
+    private suspend fun createPlaceSnapFromRealImage(
+        imagePath: String,
         realLocation: Pair<Double, Double>?,
         context: Context
     ): PlaceSnap {
-        // Use real location data if available, otherwise use test data
-        val (lat, lng) = if (hasLocation && realLocation != null) {
-            realLocation
-        } else {
-            // Fallback to test data based on image name
-            when (imageName) {
-                "chinese_character.jpg" -> Pair(39.9042, 116.4074) // Beijing
-                "IMG_3849.JPG" -> Pair(31.2304, 121.4737) // Shanghai
-                "IMG_3950.JPG" -> Pair(22.3193, 114.1694) // Hong Kong
-                else -> Pair(39.9042, 116.4074) // Default to Beijing
-            }
+        val lat = realLocation?.first
+        val lng = realLocation?.second
+        val address = realLocation?.let { (latitude, longitude) ->
+            getRealAddress(context, latitude, longitude)
         }
-        
-        // Get real address if we have location data, otherwise use fallback
-        val address = if (hasLocation && realLocation != null) {
-            getRealAddress(context, lat, lng)
-        } else {
-            "No Real Location"
-        }
-        
-        // Use real OCR instead of hardcoded fallback data
+
         val ocrResult = runRealOCR(context, imagePath)
         val chineseText = ocrResult.first
         val pinyinText = if (chineseText.isNotEmpty()) {
-            com.karen_yao.chinesetravel.shared.utils.PinyinUtils.toPinyin(chineseText)
+            PinyinUtils.toPinyin(chineseText)
         } else {
             "No text detected"
         }
-        
-        // Get real translation using ML Kit Translate
+
         Log.d(TAG, "🔄 Getting translation for: $chineseText")
         val realTranslation = try {
             TranslationUtils.translateChineseToEnglish(chineseText)
@@ -248,84 +290,7 @@ object TestDataUtils {
             "Translation failed"
         }
         Log.d(TAG, "✅ Translation result: $realTranslation")
-        
-        // Create test data with real translation
-        val testData = TestData(
-            chinese = chineseText,
-            pinyin = pinyinText,
-            lat = lat,
-            lng = lng,
-            address = address,
-            translation = realTranslation
-        )
-        
-        return PlaceSnap(
-            imagePath = imagePath,
-            nameCn = testData.chinese,
-            namePinyin = testData.pinyin,
-            lat = testData.lat,
-            longitude = testData.lng,
-            address = testData.address,
-            translation = testData.translation,
-            googleMapsLink = if (hasLocation && realLocation != null) {
-                "https://www.google.com/maps/search/?api=1&query=${testData.lat},${testData.lng}"
-            } else {
-                "No location found"
-            }
-        )
-    }
-    
-    /**
-     * Create a test PlaceSnap with real OCR for chinese_character.jpg.
-     * This actually runs OCR on the image instead of using fallback data.
-     */
-    private suspend fun createTestPlaceSnapWithRealOCR(
-        imageName: String,
-        imagePath: String,
-        hasLocation: Boolean,
-        realLocation: Pair<Double, Double>?,
-        context: Context
-    ): PlaceSnap {
-        Log.d(TAG, "🔍 Running REAL OCR on $imageName")
-        
-        // Determine coordinates
-        val (lat, lng) = if (hasLocation && realLocation != null) {
-            realLocation
-        } else {
-            // Use fallback coordinates
-            when (imageName) {
-                "chinese_character.jpg" -> Pair(39.9042, 116.4074) // Beijing
-                else -> Pair(39.9042, 116.4074) // Default to Beijing
-            }
-        }
-        
-        // Get real address if we have location data, otherwise use fallback
-        val address = if (hasLocation && realLocation != null) {
-            getRealAddress(context, lat, lng)
-        } else {
-            "No Real Location"
-        }
-        
-        // Run REAL OCR on the image
-        val ocrResult = runRealOCR(context, imagePath)
-        val chineseText = ocrResult.first
-        val pinyinText = if (chineseText.isNotEmpty()) {
-            // Use PinyinUtils to convert Chinese to pinyin
-            com.karen_yao.chinesetravel.shared.utils.PinyinUtils.toPinyin(chineseText)
-        } else {
-            "No text detected"
-        }
-        
-        // Get real translation using ML Kit Translate
-        Log.d(TAG, "🔄 Getting REAL translation for: $chineseText")
-        val realTranslation = try {
-            TranslationUtils.translateChineseToEnglish(chineseText)
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Translation failed: ${e.message}")
-            "Translation failed"
-        }
-        Log.d(TAG, "✅ REAL Translation result: $realTranslation")
-        
+
         return PlaceSnap(
             imagePath = imagePath,
             nameCn = chineseText,
@@ -334,10 +299,10 @@ object TestDataUtils {
             longitude = lng,
             address = address,
             translation = realTranslation,
-            googleMapsLink = if (hasLocation && realLocation != null) {
+            googleMapsLink = if (lat != null && lng != null) {
                 "https://www.google.com/maps/search/?api=1&query=$lat,$lng"
             } else {
-                "No location found"
+                null
             }
         )
     }
@@ -390,61 +355,6 @@ object TestDataUtils {
     
 
     /**
-     * Create a test PlaceSnap entry for testing purposes.
-     * 
-     * @param imageName Original image name
-     * @param imagePath Path to the exported image file
-     * @return PlaceSnap object with test data
-     */
-    private suspend fun createTestPlaceSnap(context: Context, imageName: String, imagePath: String): PlaceSnap {
-        // Use real OCR instead of hardcoded test data
-        val ocrResult = runRealOCR(context, imagePath)
-        val chineseText = ocrResult.first
-        val pinyinText = if (chineseText.isNotEmpty()) {
-            com.karen_yao.chinesetravel.shared.utils.PinyinUtils.toPinyin(chineseText)
-        } else {
-            "No text detected"
-        }
-        
-        // Get real translation using ML Kit Translate
-        val realTranslation = try {
-            com.karen_yao.chinesetravel.shared.utils.TranslationUtils.translateChineseToEnglish(chineseText)
-        } catch (e: Exception) {
-            "Translation failed"
-        }
-        
-        // Use default coordinates (Beijing) for test data
-        val testData = TestData(
-            chinese = chineseText,
-            pinyin = pinyinText,
-            lat = 39.9042,
-            lng = 116.4074,
-            address = "Test Location",
-            translation = realTranslation
-        )
-        
-        return PlaceSnap(
-            imagePath = imagePath,
-            nameCn = testData.chinese,
-            namePinyin = testData.pinyin,
-            lat = testData.lat,
-            longitude = testData.lng,
-            address = testData.address,
-            translation = testData.translation,
-            googleMapsLink = "https://www.google.com/maps/search/?api=1&query=${testData.lat},${testData.lng}"
-        )
-    }
-    
-    private data class TestData(
-        val chinese: String,
-        val pinyin: String,
-        val lat: Double,
-        val lng: Double,
-        val address: String,
-        val translation: String
-    )
-    
-    /**
      * Test a single image with full processing (OCR, location, database).
      * 
      * @param context Application context
@@ -466,16 +376,13 @@ object TestDataUtils {
                 if (exportedFile != null) {
                     // Check location data
                     val imageProcessor = ImageProcessor()
-                    val hasLocation = imageProcessor.hasLocationData(exportedFile)
                     val realLocation = imageProcessor.extractLocationFromFile(exportedFile)
                     
                     // Create test snap
-                    val testSnap = createTestPlaceSnapWithRealData(
-                        imageName, 
-                        exportedFile.absolutePath, 
-                        hasLocation, 
-                        realLocation,
-                        context
+                    val testSnap = createPlaceSnapFromRealImage(
+                        imagePath = exportedFile.absolutePath,
+                        realLocation = realLocation,
+                        context = context
                     )
                     
                     // Save to database
@@ -483,12 +390,12 @@ object TestDataUtils {
                     
                     val result = buildString {
                         appendLine("✅ Image: $imageName")
-                        if (hasLocation && realLocation != null) {
+                        if (realLocation != null) {
                             appendLine("📍 Location: REAL GPS FOUND")
                             appendLine("   Coordinates: ${realLocation.first}, ${realLocation.second}")
                         } else {
                             appendLine("⚠️ Location: NO REAL LOCATION FOUND")
-                            appendLine("   Using fallback coordinates: ${testSnap.lat}, ${testSnap.longitude}")
+                            appendLine("   Location fields stored as null")
                         }
                         appendLine("📝 Chinese: ${testSnap.nameCn}")
                         appendLine("🔤 Pinyin: ${testSnap.namePinyin}")

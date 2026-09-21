@@ -37,6 +37,22 @@
         app:elevation="8dp"
         app:borderWidth="0dp" />
 
+    <!-- Map FAB - positioned above the camera FAB -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabMap"
+        android:src="@android:drawable/ic_dialog_map"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end|bottom"
+        android:layout_marginEnd="24dp"
+        android:layout_marginBottom="100dp"
+        android:backgroundTint="@color/accent_gold"
+        android:tint="@color/text_primary"
+        app:tint="@color/text_primary"
+        app:backgroundTint="@color/accent_gold"
+        app:elevation="8dp"
+        app:borderWidth="0dp" />
+
     <!-- Test Features Dropdown -->
     <LinearLayout
         android:id="@+id/testContainer"

@@ -1,81 +1,110 @@
 package com.karen_yao.chinesetravel.features.home.ui
 
-import android.content.Intent
-import android.net.Uri
 import android.view.LayoutInflater
-import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
-import android.widget.TextView
+import androidx.core.net.toUri
+import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import com.karen_yao.chinesetravel.R
 import com.karen_yao.chinesetravel.core.database.entities.PlaceSnap
+import com.karen_yao.chinesetravel.databinding.ItemSnapBinding
 
-/**
- * RecyclerView adapter for displaying captured place snaps.
- * Uses ListAdapter for efficient list updates.
- */
+sealed interface SnapItemAction {
+    data class Delete(val snap: PlaceSnap) : SnapItemAction
+    data class OpenMap(val url: String) : SnapItemAction
+}
+
 class SnapsAdapter(
-    private val onDeleteClick: (PlaceSnap) -> Unit
+    private val onAction: (SnapItemAction) -> Unit
 ) : ListAdapter<PlaceSnap, SnapsViewHolder>(DIFF_CALLBACK) {
-    
+
+    var actionsEnabled: Boolean = true
+        set(value) {
+            if (field == value) return
+            field = value
+            notifyItemRangeChanged(0, itemCount, PAYLOAD_ACTION_STATE)
+        }
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SnapsViewHolder {
-        val view = LayoutInflater.from(parent.context).inflate(R.layout.item_snap, parent, false)
-        return SnapsViewHolder(view, onDeleteClick)
+        val binding = ItemSnapBinding.inflate(
+            LayoutInflater.from(parent.context),
+            parent,
+            false
+        )
+        return SnapsViewHolder(binding, onAction)
     }
-    
+
     override fun onBindViewHolder(holder: SnapsViewHolder, position: Int) {
-        holder.bind(getItem(position))
+        holder.bind(getItem(position), actionsEnabled)
+    }
+
+    override fun onBindViewHolder(
+        holder: SnapsViewHolder,
+        position: Int,
+        payloads: MutableList<Any>
+    ) {
+        if (payloads.contains(PAYLOAD_ACTION_STATE)) {
+            holder.setActionsEnabled(actionsEnabled)
+        } else {
+            super.onBindViewHolder(holder, position, payloads)
+        }
     }
 
     companion object {
+        private const val PAYLOAD_ACTION_STATE = "action_state"
+
         private val DIFF_CALLBACK = object : DiffUtil.ItemCallback<PlaceSnap>() {
-            override fun areItemsTheSame(oldItem: PlaceSnap, newItem: PlaceSnap) = 
+            override fun areItemsTheSame(oldItem: PlaceSnap, newItem: PlaceSnap): Boolean =
                 oldItem.id == newItem.id
-                
-            override fun areContentsTheSame(oldItem: PlaceSnap, newItem: PlaceSnap) = 
+
+            override fun areContentsTheSame(oldItem: PlaceSnap, newItem: PlaceSnap): Boolean =
                 oldItem == newItem
         }
     }
 }
 
-/**
- * ViewHolder for individual snap items in the RecyclerView.
- */
 class SnapsViewHolder(
-    view: View,
-    private val onDeleteClick: (PlaceSnap) -> Unit
-) : RecyclerView.ViewHolder(view) {
-    private val chineseText = view.findViewById<TextView>(R.id.tvCn)
-    private val pinyinText = view.findViewById<TextView>(R.id.tvPinyin)
-    private val addressText = view.findViewById<TextView>(R.id.tvAddress)
-    private val translationText = view.findViewById<TextView>(R.id.tvTranslation)
-    private val googleMapsLinkText = view.findViewById<TextView>(R.id.tvGoogleMapsLink)
-    private val deleteButton = view.findViewById<Button>(R.id.btnDelete)
-    
-    fun bind(snap: PlaceSnap) {
-        chineseText.text = snap.nameCn
-        pinyinText.text = snap.namePinyin
-        addressText.text = snap.address ?: ""
-        translationText.text = snap.translation
-        
-        // Make Google Maps link clickable
-        if (!snap.googleMapsLink.isNullOrBlank() && snap.googleMapsLink != "No location found") {
-            googleMapsLinkText.text = "🗺️ Open in Google Maps"
-            googleMapsLinkText.setOnClickListener {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(snap.googleMapsLink))
-                itemView.context.startActivity(intent)
-            }
-        } else {
-            googleMapsLinkText.text = "No location found"
-            googleMapsLinkText.setOnClickListener(null)
+    private val binding: ItemSnapBinding,
+    private val onAction: (SnapItemAction) -> Unit
+) : RecyclerView.ViewHolder(binding.root) {
+
+    private var hasMapAction = false
+
+    fun bind(snap: PlaceSnap, actionsEnabled: Boolean) = with(binding) {
+        btnDelete.setOnClickListener(null)
+        tvGoogleMapsLink.setOnClickListener(null)
+        locationRow.isVisible = false
+        tvGoogleMapsLink.isVisible = false
+
+        tvCn.text = snap.nameCn
+        tvPinyin.text = snap.namePinyin
+        tvTranslation.text = snap.translation
+
+        val address = snap.address?.takeIf(String::isNotBlank)
+        locationRow.isVisible = address != null
+        tvAddress.text = address.orEmpty()
+
+        val mapUrl = snap.googleMapsLink?.takeIf(::isValidMapUrl)
+        hasMapAction = mapUrl != null
+        tvGoogleMapsLink.isVisible = hasMapAction
+
+        btnDelete.setOnClickListener { onAction(SnapItemAction.Delete(snap)) }
+        tvGoogleMapsLink.setOnClickListener {
+            mapUrl?.let { url -> onAction(SnapItemAction.OpenMap(url)) }
         }
-        
-        // Set up delete button
-        deleteButton.setOnClickListener {
-            onDeleteClick(snap)
-        }
+
+        setActionsEnabled(actionsEnabled)
+    }
+
+    fun setActionsEnabled(enabled: Boolean) = with(binding) {
+        btnDelete.isEnabled = enabled
+        tvGoogleMapsLink.isEnabled = enabled && hasMapAction
+    }
+
+    private fun isValidMapUrl(url: String): Boolean {
+        if (url.isBlank()) return false
+        val scheme = url.toUri().scheme?.lowercase()
+        return scheme == "https" || scheme == "http" || scheme == "geo"
     }
 }

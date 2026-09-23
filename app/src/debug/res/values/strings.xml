@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="debug_tools_title">Chinese Travel Debug Tools</string>
+    <string name="debug_tools_description">Development-only OCR, EXIF, location, and fixture checks. This screen is not included in release builds.</string>
+    <string name="debug_test_selector_content_description">Choose a developer test</string>
+    <string name="debug_running_content_description">Running developer test</string>
+    <string name="debug_ready">Select a test to run.</string>
+    <string name="debug_close">Close</string>
+    <string-array name="debug_test_options">
+        <item>Select a test feature…</item>
+        <item>Test real image pipeline</item>
+        <item>Test photo EXIF locations</item>
+        <item>Test current device location</item>
+        <item>Test OCR: IMG_3950.JPG</item>
+        <item>Test OCR: TEST2.png</item>
+    </string-array>
+    <string name="debug_pipeline_summary">Inserted %1$d/%2$d: %3$d located, %4$d unlocated, %5$d failed.</string>
+    <string name="debug_photo_summary">Photo metadata: %1$d located, %2$d unlocated, %3$d failed.</string>
+    <string name="debug_location_permission_denied">Location permission was not granted. Previous result unchanged.</string>
+    <string name="debug_location_source_simulated">simulated device</string>
+    <string name="debug_location_source_device">device</string>
+    <string name="debug_location_saved">Saved fresh %1$s location.</string>
+    <string name="debug_location_unavailable">Location unavailable: %1$s. Previous result unchanged.</string>
+    <string name="debug_ocr_failed">OCR failed for %1$s.</string>
+    <string name="debug_no_text">No text was detected in %1$s.</string>
+    <string name="debug_select_ocr_line">Select text from %1$s</string>
+    <string name="debug_ocr_saved">Saved OCR result: %1$s</string>
+    <string name="debug_test_failed">The debug test failed. Check Logcat for details.</string>
+</resources>

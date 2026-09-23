@@ -2,17 +2,31 @@ package com.karen_yao.chinesetravel.core.repository
 
 import com.karen_yao.chinesetravel.core.database.AppDatabase
 import com.karen_yao.chinesetravel.core.database.entities.PlaceSnap
+import androidx.room.withTransaction
+import kotlinx.coroutines.flow.Flow
+
+/**
+ * The collection operations required by the Home feature.
+ *
+ * Keeping this contract independent from Room lets HomeViewModel be tested with
+ * an in-memory fake while TravelRepository remains the production implementation.
+ */
+interface SnapRepository {
+    fun getAllSnaps(): Flow<List<PlaceSnap>>
+    suspend fun clearAllSnaps()
+    suspend fun deleteSnap(snap: PlaceSnap)
+}
 
 /**
  * Repository pattern implementation for travel data.
  * Provides a clean interface between UI and data layer.
  */
-class TravelRepository(private val database: AppDatabase) {
+class TravelRepository(private val database: AppDatabase) : SnapRepository {
     
     /**
      * Get all captured snaps as a Flow for reactive UI updates.
      */
-    fun getAllSnaps() = database.placeSnapDao().allSnaps()
+    override fun getAllSnaps() = database.placeSnapDao().allSnaps()
     
     /**
      * Save a new place snap to the database.
@@ -27,12 +41,20 @@ class TravelRepository(private val database: AppDatabase) {
     /**
      * Clear all snaps from the database.
      */
-    suspend fun clearAllSnaps() = database.placeSnapDao().clearAll()
+    override suspend fun clearAllSnaps() = database.placeSnapDao().clearAll()
     
     /**
      * Delete a specific snap from the database.
      */
-    suspend fun deleteSnap(snap: PlaceSnap) = database.placeSnapDao().delete(snap)
+    override suspend fun deleteSnap(snap: PlaceSnap) = database.placeSnapDao().delete(snap)
+
+    /** Atomically replaces only the explicitly named records. */
+    suspend fun replaceSnapsByIds(idsToReplace: List<String>, replacements: List<PlaceSnap>) {
+        database.withTransaction {
+            database.placeSnapDao().deleteByIds(idsToReplace)
+            database.placeSnapDao().insertAll(replacements)
+        }
+    }
 
     /**
      * Get all snaps with valid GPS coordinates for map display.

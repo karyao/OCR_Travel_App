@@ -54,21 +54,31 @@ class PlaceSnapDaoTest {
     }
 
     @Test
-    fun reseedingMapFixturesIsIdempotentAndPreservesUnrelatedRecords() = runBlocking {
+    fun replacingLocationTestsIsAtomicIdempotentAndPreservesUnrelatedRecords() = runBlocking {
         val repository = TravelRepository(database)
         val unrelated = snap("unrelated", 48.8566, 2.3522)
         dao.insert(unrelated)
 
-        TestDataUtils.seedMapDemoData(repository)
-        TestDataUtils.seedMapDemoData(repository)
+        val first = TestDataUtils.createPhotoLocationRecord(
+            imageName = "IMG_3950.JPG",
+            imagePath = "",
+            location = 49.2827 to -123.1207,
+            createdAt = 1L
+        )
+        val second = first.copy(lat = null, longitude = null, googleMapsLink = null, createdAt = 2L)
+        val ids = listOf(first.id) + TestDataUtils.LEGACY_MAP_FIXTURE_IDS
+
+        repository.replaceSnapsByIds(ids, listOf(first))
+        repository.replaceSnapsByIds(ids, listOf(second))
 
         val allSnaps = dao.allSnaps().first()
         val mapSnaps = dao.snapsWithLocation().first()
 
-        assertEquals(5, allSnaps.size)
-        assertEquals(5, allSnaps.map { it.id }.distinct().size)
-        assertEquals(4, mapSnaps.size)
+        assertEquals(2, allSnaps.size)
+        assertEquals(2, allSnaps.map { it.id }.distinct().size)
+        assertEquals(1, mapSnaps.size)
         assertTrue(allSnaps.any { it.id == unrelated.id })
+        assertTrue(allSnaps.single { it.id == first.id }.lat == null)
     }
 
     private fun snap(id: String, lat: Double?, longitude: Double?) = PlaceSnap(

@@ -3,6 +3,7 @@ package com.karen_yao.chinesetravel.core.database.dao
 import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.karen_yao.chinesetravel.core.database.entities.PlaceSnap
 import kotlinx.coroutines.flow.Flow
@@ -19,6 +20,9 @@ interface PlaceSnapDao {
 
     @Insert
     suspend fun insert(snap: PlaceSnap)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(snaps: List<PlaceSnap>)
     
     @Delete
     suspend fun delete(snap: PlaceSnap)
@@ -30,6 +34,9 @@ interface PlaceSnapDao {
     /** Clear all snaps from the database. */
     @Query("DELETE FROM PlaceSnap")
     suspend fun clearAll()
+
+    @Query("DELETE FROM PlaceSnap WHERE id IN (:ids)")
+    suspend fun deleteByIds(ids: List<String>)
 
     /** Get all snaps that have valid GPS coordinates for map display. */
     @Query(

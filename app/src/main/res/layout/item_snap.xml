@@ -41,7 +41,8 @@
                 android:id="@+id/btnDelete"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="✕"
+                android:contentDescription="@string/home_delete_content_description"
+                android:text="@string/home_delete_symbol"
                 android:textSize="18sp"
                 android:textColor="@color/text_primary"
                 android:background="@android:color/transparent"
@@ -81,6 +82,7 @@
 
         <!-- Location Info -->
         <LinearLayout
+            android:id="@+id/locationRow"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
@@ -90,7 +92,8 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="📍"
+                android:importantForAccessibility="no"
+                android:text="@string/home_location_symbol"
                 android:textSize="16sp"
                 android:layout_marginEnd="8dp" />
 
@@ -109,7 +112,7 @@
             android:id="@+id/tvGoogleMapsLink"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="📍 View on Google Maps"
+            android:text="@string/home_open_google_maps"
             android:textSize="14sp"
             android:textColor="@color/white"
             android:textStyle="bold"

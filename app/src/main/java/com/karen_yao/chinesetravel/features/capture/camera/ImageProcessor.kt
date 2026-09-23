@@ -51,7 +51,7 @@ class ImageProcessor {
      * @param file The original image file
      * @return Preprocessed image file optimized for OCR
      */
-    fun preprocessImageForOCR(file: File): File {
+    fun preprocessImageForOCR(file: File, outputDirectory: File = file.parentFile ?: File(".")): File {
         return try {
             // Load original bitmap
             val originalBitmap = BitmapFactory.decodeFile(file.absolutePath)
@@ -61,7 +61,8 @@ class ImageProcessor {
             val preprocessedBitmap = enhanceImageForOCR(originalBitmap)
             
             // Save preprocessed image
-            val preprocessedFile = File(file.parent, "preprocessed_${file.name}")
+            outputDirectory.mkdirs()
+            val preprocessedFile = File(outputDirectory, "preprocessed_${file.name}")
             FileOutputStream(preprocessedFile).use { out ->
                 preprocessedBitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
             }

@@ -28,7 +28,7 @@ class CaptureViewModel(private val repository: TravelRepository) : ViewModel() {
         pinyinText: String,
         latitude: Double?,
         longitude: Double?,
-        address: String,
+        address: String?,
         imagePath: String
     ): Int {
         // Get real translation using ML Kit Translate
@@ -36,7 +36,7 @@ class CaptureViewModel(private val repository: TravelRepository) : ViewModel() {
         
         val googleMapsLink = if (latitude != null && longitude != null) {
             "https://www.google.com/maps/search/?api=1&query=$latitude,$longitude"
-        } else "No location found"
+        } else null
         
         val placeSnap = PlaceSnap(
             imagePath = imagePath,

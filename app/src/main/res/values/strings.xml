@@ -1,5 +1,6 @@
 <resources>
     <string name="app_name">ChineseTravel</string>
+    <string name="common_back">← Back</string>
     <string name="osm_attribution">© OpenStreetMap contributors</string>
     <string name="osm_attribution_content_description">Open OpenStreetMap copyright information</string>
     <string name="osm_copyright_url" translatable="false">https://www.openstreetmap.org/copyright</string>
@@ -8,4 +9,35 @@
     <string name="map_zoom_out">−</string>
     <string name="map_zoom_in_content_description">Zoom in</string>
     <string name="map_zoom_out_content_description">Zoom out</string>
+
+    <string name="home_title">Your Travel Collection</string>
+    <plurals name="home_snap_count">
+        <item quantity="one">%d snap</item>
+        <item quantity="other">%d snaps</item>
+    </plurals>
+    <string name="home_more_actions_content_description">More collection actions</string>
+    <string name="home_capture_content_description">Capture Chinese text</string>
+    <string name="home_map_content_description">Open travel map</string>
+    <string name="home_loading_content_description">Loading saved snaps</string>
+    <string name="home_empty_icon" translatable="false">📸</string>
+    <string name="home_empty_title">No Chinese text captured yet</string>
+    <string name="home_empty_message">Tap the camera button to start capturing Chinese text</string>
+    <string name="home_load_error_title">Couldn’t load your collection</string>
+    <string name="home_load_error_message">Close and reopen this screen to try again.</string>
+    <string name="home_clear_all">Clear all</string>
+    <string name="home_clear_title">Clear all snaps?</string>
+    <string name="home_clear_message">All captured snaps will be deleted. This action cannot be undone.</string>
+    <string name="home_clear_confirm">Clear all</string>
+    <string name="home_clear_success">All snaps cleared</string>
+    <string name="home_clear_error">Couldn’t clear the collection</string>
+    <string name="home_delete_title">Delete snap?</string>
+    <string name="home_delete_message">Delete “%1$s” from your collection?</string>
+    <string name="home_delete_confirm">Delete</string>
+    <string name="home_delete_success">Snap deleted</string>
+    <string name="home_delete_error">Couldn’t delete the snap</string>
+    <string name="home_delete_content_description">Delete snap</string>
+    <string name="home_delete_symbol" translatable="false">✕</string>
+    <string name="home_location_symbol" translatable="false">📍</string>
+    <string name="home_open_google_maps">Open in Google Maps</string>
+    <string name="home_map_open_error">No app is available to open this map</string>
 </resources>

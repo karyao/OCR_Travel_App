@@ -6,15 +6,15 @@ import android.util.Log
 import com.karen_yao.chinesetravel.core.database.entities.PlaceSnap
 import com.karen_yao.chinesetravel.core.repository.TravelRepository
 import com.karen_yao.chinesetravel.features.capture.camera.ImageProcessor
-import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlin.coroutines.resume
 import java.io.File
 import java.io.FileOutputStream
 import java.util.Locale
+import java.text.DateFormat
+import java.util.Date
 
 /**
  * Utility class for testing OCR and location functionality with sample images.
@@ -42,74 +42,134 @@ object TestDataUtils {
         val failed: Int
     )
 
-    private const val MAP_FIXTURE_ID_PREFIX = "test-map-fixture-"
+    internal data class OcrSampleResult(
+        val imageName: String,
+        val imagePath: String,
+        val detectedLines: List<String>
+    )
 
-    /**
-     * Deterministic records for exercising map behavior without OCR, geocoding, or network work.
-     * The unlocated control record must remain absent from the map.
-     */
-    internal fun createMapDemoFixtures(createdAt: Long = System.currentTimeMillis()): List<PlaceSnap> =
-        listOf(
-            PlaceSnap(
-                id = "${MAP_FIXTURE_ID_PREFIX}beijing",
-                imagePath = "",
-                nameCn = "北京",
-                namePinyin = "Běijīng",
-                lat = 39.9042,
-                longitude = 116.4074,
-                address = "Beijing, China",
-                translation = "Beijing",
-                googleMapsLink = "https://www.google.com/maps/search/?api=1&query=39.9042,116.4074",
-                createdAt = createdAt
-            ),
-            PlaceSnap(
-                id = "${MAP_FIXTURE_ID_PREFIX}shanghai",
-                imagePath = "",
-                nameCn = "上海",
-                namePinyin = "Shànghǎi",
-                lat = 31.2304,
-                longitude = 121.4737,
-                address = "Shanghai, China",
-                translation = "Shanghai",
-                googleMapsLink = "https://www.google.com/maps/search/?api=1&query=31.2304,121.4737",
-                createdAt = createdAt - 1
-            ),
-            PlaceSnap(
-                id = "${MAP_FIXTURE_ID_PREFIX}hong-kong",
-                imagePath = "",
-                nameCn = "香港",
-                namePinyin = "Xiānggǎng",
-                lat = 22.3193,
-                longitude = 114.1694,
-                address = "Hong Kong",
-                translation = "Hong Kong",
-                googleMapsLink = "https://www.google.com/maps/search/?api=1&query=22.3193,114.1694",
-                createdAt = createdAt - 2
-            ),
-            PlaceSnap(
-                id = "${MAP_FIXTURE_ID_PREFIX}unlocated",
-                imagePath = "",
-                nameCn = "无位置",
-                namePinyin = "Wú wèizhì",
-                lat = null,
-                longitude = null,
-                address = null,
-                translation = "No location",
-                googleMapsLink = null,
-                createdAt = createdAt - 3
-            )
+    internal val LEGACY_MAP_FIXTURE_IDS = listOf(
+        "test-map-fixture-beijing",
+        "test-map-fixture-shanghai",
+        "test-map-fixture-hong-kong",
+        "test-map-fixture-unlocated"
+    )
+    internal const val DEVICE_LOCATION_TEST_ID = "test-device-location-current"
+    private const val PHOTO_LOCATION_ID_PREFIX = "test-photo-location-"
+    private const val REAL_PIPELINE_ID_PREFIX = "test-real-pipeline-"
+    private const val OCR_SAMPLE_ID_PREFIX = "test-ocr-sample-"
+
+    internal val photoLocationTestIds: List<String>
+        get() = testImages.map(::photoLocationTestId)
+
+    internal fun photoLocationTestId(imageName: String): String =
+        PHOTO_LOCATION_ID_PREFIX + imageName.lowercase(Locale.ROOT)
+            .replace(Regex("[^a-z0-9]+"), "-")
+            .trim('-')
+
+    private fun realPipelineTestId(imageName: String): String =
+        REAL_PIPELINE_ID_PREFIX + imageName.lowercase(Locale.ROOT)
+            .replace(Regex("[^a-z0-9]+"), "-")
+            .trim('-')
+
+    internal fun createPhotoLocationRecord(
+        imageName: String,
+        imagePath: String,
+        location: Pair<Double, Double>?,
+        createdAt: Long = System.currentTimeMillis()
+    ): PlaceSnap {
+        val latitude = location?.first
+        val longitude = location?.second
+        return PlaceSnap(
+            id = photoLocationTestId(imageName),
+            imagePath = imagePath,
+            nameCn = "照片位置测试",
+            namePinyin = "Zhàopiàn wèizhì cèshì",
+            lat = latitude,
+            longitude = longitude,
+            address = null,
+            translation = if (location != null) {
+                "$imageName • EXIF photo location"
+            } else {
+                "$imageName • No EXIF location"
+            },
+            googleMapsLink = if (latitude != null && longitude != null) {
+                "https://www.google.com/maps/search/?api=1&query=$latitude,$longitude"
+            } else {
+                null
+            },
+            createdAt = createdAt
         )
+    }
 
-    /**
-     * Replace only the stable map fixtures, preserving every non-fixture database record.
-     */
-    internal suspend fun seedMapDemoData(repository: TravelRepository): Int {
-        val fixtures = createMapDemoFixtures()
-        fixtures.forEach { fixture ->
-            repository.deleteSnap(fixture)
-            repository.saveSnap(fixture)
+    internal fun createDeviceLocationTestRecord(
+        latitude: Double,
+        longitude: Double,
+        isMock: Boolean,
+        createdAt: Long = System.currentTimeMillis()
+    ): PlaceSnap {
+        val timestamp = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
+            .format(Date(createdAt))
+        return PlaceSnap(
+            id = DEVICE_LOCATION_TEST_ID,
+            imagePath = "",
+            nameCn = "设备位置测试",
+            namePinyin = "Shèbèi wèizhì cèshì",
+            lat = latitude,
+            longitude = longitude,
+            address = null,
+            translation = if (isMock) {
+                "Simulated device location • $timestamp"
+            } else {
+                "Current device location • $timestamp"
+            },
+            googleMapsLink =
+                "https://www.google.com/maps/search/?api=1&query=$latitude,$longitude",
+            createdAt = createdAt
+        )
+    }
+
+    /** Reads only EXIF metadata; this test performs no OCR, translation, or geocoding. */
+    internal suspend fun testPhotoLocations(
+        context: Context,
+        repository: TravelRepository
+    ): TestRunSummary = withContext(Dispatchers.IO) {
+        val records = mutableListOf<PlaceSnap>()
+        var failed = 0
+
+        testImages.forEachIndexed { index, imageName ->
+            try {
+                val file = exportImageFromAssets(context, imageName)
+                if (file == null) {
+                    failed++
+                } else {
+                    val location = ImageProcessor().extractLocationFromFile(file)
+                    records += createPhotoLocationRecord(
+                        imageName = imageName,
+                        imagePath = file.absolutePath,
+                        location = location,
+                        createdAt = System.currentTimeMillis() - index
+                    )
+                }
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (exception: Exception) {
+                failed++
+                Log.e(TAG, "Photo-location test failed for $imageName", exception)
+            }
         }
-        return fixtures.size
+
+        repository.replaceSnapsByIds(
+            idsToReplace = photoLocationTestIds + LEGACY_MAP_FIXTURE_IDS,
+            replacements = records
+        )
+        TestRunSummary(
+            processed = testImages.size,
+            inserted = records.size,
+            located = records.count { it.lat != null && it.longitude != null },
+            unlocated = records.count { it.lat == null || it.longitude == null },
+            failed = failed
+        )
     }
     
     /**
@@ -151,6 +211,7 @@ object TestDataUtils {
                     "$latitude, $longitude"
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 Log.e(TAG, "📍 Geocoding failed: ${e.message}, using coordinates")
                 "$latitude, $longitude"
             }
@@ -175,6 +236,7 @@ object TestDataUtils {
         var locatedCount = 0
         var unlocatedCount = 0
         var failedCount = 0
+        val records = mutableListOf<PlaceSnap>()
 
         for (imageName in testImages) {
             try {
@@ -189,12 +251,13 @@ object TestDataUtils {
                     Log.d(TAG, "🔍 Location check for $imageName: realLocation=$realLocation")
 
                     val testSnap = createPlaceSnapFromRealImage(
+                        id = realPipelineTestId(imageName),
                         imagePath = exportedFile.absolutePath,
                         realLocation = realLocation,
                         context = context
                     )
 
-                    repository.saveSnap(testSnap)
+                    records += testSnap
                     insertedCount++
 
                     if (realLocation != null) {
@@ -215,11 +278,18 @@ object TestDataUtils {
                     failedCount++
                     Log.w(TAG, "❌ Failed to export: $imageName")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 failedCount++
                 Log.e(TAG, "💥 Error processing $imageName", e)
             }
         }
+
+        repository.replaceSnapsByIds(
+            idsToReplace = testImages.map(::realPipelineTestId) + LEGACY_MAP_FIXTURE_IDS,
+            replacements = records
+        )
 
         val summary = TestRunSummary(
             processed = testImages.size,
@@ -235,6 +305,64 @@ object TestDataUtils {
         Log.d(TAG, "📱 Check your home screen - new test entries should appear in the list!")
         summary
     }
+
+    internal suspend fun recognizeOcrSample(
+        context: Context,
+        imageName: String
+    ): OcrSampleResult = withContext(Dispatchers.IO) {
+        val sourceFile = exportImageFromAssets(context, imageName)
+            ?: error("Could not export $imageName")
+        val processedFile = ImageProcessor().preprocessImageForOCR(sourceFile, context.cacheDir)
+        val recognizer = com.google.mlkit.vision.text.TextRecognition.getClient(
+            com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions.Builder().build()
+        )
+
+        try {
+            val image = com.google.mlkit.vision.common.InputImage.fromFilePath(
+                context,
+                android.net.Uri.fromFile(processedFile)
+            )
+            val lines = recognizer.process(image).await().text
+                .lines()
+                .map(String::trim)
+                .filter(String::isNotEmpty)
+            OcrSampleResult(imageName, sourceFile.absolutePath, lines)
+        } finally {
+            recognizer.close()
+            if (processedFile != sourceFile) processedFile.delete()
+        }
+    }
+
+    internal suspend fun saveOcrSampleSelection(
+        context: Context,
+        repository: TravelRepository,
+        result: OcrSampleResult,
+        selectedText: String
+    ) = withContext(Dispatchers.IO) {
+        val file = File(result.imagePath)
+        val location = ImageProcessor().extractLocationFromFile(file)
+        val address = location?.let { (latitude, longitude) ->
+            getRealAddress(context, latitude, longitude)
+        }
+        val translation = TranslationUtils.translateChineseToEnglish(selectedText)
+        val id = OCR_SAMPLE_ID_PREFIX + result.imageName.lowercase(Locale.ROOT)
+            .replace(Regex("[^a-z0-9]+"), "-")
+            .trim('-')
+        val record = PlaceSnap(
+            id = id,
+            imagePath = result.imagePath,
+            nameCn = selectedText,
+            namePinyin = PinyinUtils.toPinyin(selectedText),
+            lat = location?.first,
+            longitude = location?.second,
+            address = address,
+            translation = translation,
+            googleMapsLink = location?.let { (latitude, longitude) ->
+                "https://www.google.com/maps/search/?api=1&query=$latitude,$longitude"
+            }
+        )
+        repository.replaceSnapsByIds(listOf(id), listOf(record))
+    }
     
     /**
      * Export a single image from assets to device storage.
@@ -245,8 +373,9 @@ object TestDataUtils {
      */
     private fun exportImageFromAssets(context: Context, imageName: String): File? {
         return try {
-            // Create a file in the app's cache directory
-            val outputFile = File(context.cacheDir, "test_$imageName")
+            // These files back database test rows, so keep them in durable app storage.
+            val testDirectory = File(context.filesDir, "test-images").apply { mkdirs() }
+            val outputFile = File(testDirectory, "test_$imageName")
             
             // Copy from assets to cache directory
             context.assets.open(imageName).use { inputStream ->
@@ -264,6 +393,7 @@ object TestDataUtils {
     }
     
     private suspend fun createPlaceSnapFromRealImage(
+        id: String,
         imagePath: String,
         realLocation: Pair<Double, Double>?,
         context: Context
@@ -285,6 +415,8 @@ object TestDataUtils {
         Log.d(TAG, "🔄 Getting translation for: $chineseText")
         val realTranslation = try {
             TranslationUtils.translateChineseToEnglish(chineseText)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "❌ Translation failed: ${e.message}")
             "Translation failed"
@@ -292,6 +424,7 @@ object TestDataUtils {
         Log.d(TAG, "✅ Translation result: $realTranslation")
 
         return PlaceSnap(
+            id = id,
             imagePath = imagePath,
             nameCn = chineseText,
             namePinyin = pinyinText,
@@ -318,153 +451,26 @@ object TestDataUtils {
             // Create InputImage from file
             val image = com.google.mlkit.vision.common.InputImage.fromFilePath(context, android.net.Uri.fromFile(java.io.File(imagePath)))
             
-            // Create Chinese text recognizer
             val recognizer = com.google.mlkit.vision.text.TextRecognition.getClient(
                 com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions.Builder().build()
             )
-            
-            // Run OCR
-            val result = suspendCancellableCoroutine<com.google.mlkit.vision.text.Text> { continuation ->
-                recognizer.process(image)
-                    .addOnSuccessListener { text ->
-                        continuation.resume(text)
-                    }
-                    .addOnFailureListener { exception ->
-                        Log.e(TAG, "❌ OCR failed: ${exception.message}")
-                        // Return empty result instead of creating Text object
-                        continuation.resume(com.google.mlkit.vision.text.Text("", emptyList<com.google.mlkit.vision.text.Text.Element>()))
-                    }
+            try {
+                val detectedText = recognizer.process(image).await().text
+                Log.d(TAG, "📝 OCR detected text: '$detectedText'")
+
+                val chineseText = detectedText.filter {
+                    it.toString().matches(Regex("[\\p{IsHan}]"))
+                }
+                Log.d(TAG, "🔤 Chinese characters found: '$chineseText'")
+                Pair(chineseText, detectedText)
+            } finally {
+                recognizer.close()
             }
-            val detectedText = result.text ?: ""
-            
-            Log.d(TAG, "📝 OCR detected text: '$detectedText'")
-            
-            // Extract Chinese characters
-            val chineseText = detectedText.filter { it.toString().matches(Regex("[\\p{IsHan}]")) }
-            
-            Log.d(TAG, "🔤 Chinese characters found: '$chineseText'")
-            
-            recognizer.close()
-            
-            Pair(chineseText, detectedText)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "❌ OCR failed: ${e.message}")
             Pair("OCR failed", "")
-        }
-    }
-    
-
-    /**
-     * Test a single image with full processing (OCR, location, database).
-     * 
-     * @param context Application context
-     * @param repository TravelRepository for saving test data
-     * @param imageName Name of the image in assets
-     * @param onResult Callback with the test result
-     */
-    fun testSingleImage(
-        context: Context, 
-        repository: TravelRepository, 
-        imageName: String, 
-        onResult: (String) -> Unit
-    ) {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                Log.d(TAG, "🔍 Testing single image: $imageName")
-                
-                val exportedFile = exportImageFromAssets(context, imageName)
-                if (exportedFile != null) {
-                    // Check location data
-                    val imageProcessor = ImageProcessor()
-                    val realLocation = imageProcessor.extractLocationFromFile(exportedFile)
-                    
-                    // Create test snap
-                    val testSnap = createPlaceSnapFromRealImage(
-                        imagePath = exportedFile.absolutePath,
-                        realLocation = realLocation,
-                        context = context
-                    )
-                    
-                    // Save to database
-                    repository.saveSnap(testSnap)
-                    
-                    val result = buildString {
-                        appendLine("✅ Image: $imageName")
-                        if (realLocation != null) {
-                            appendLine("📍 Location: REAL GPS FOUND")
-                            appendLine("   Coordinates: ${realLocation.first}, ${realLocation.second}")
-                        } else {
-                            appendLine("⚠️ Location: NO REAL LOCATION FOUND")
-                            appendLine("   Location fields stored as null")
-                        }
-                        appendLine("📝 Chinese: ${testSnap.nameCn}")
-                        appendLine("🔤 Pinyin: ${testSnap.namePinyin}")
-                        appendLine("🌐 Translation: ${testSnap.translation}")
-                        appendLine("🏠 Address: ${testSnap.address}")
-                    }
-                    
-                    onResult(result)
-                } else {
-                    onResult("❌ Failed to export image: $imageName")
-                }
-            } catch (e: Exception) {
-                onResult("💥 Test failed for $imageName: ${e.message}")
-            }
-        }
-    }
-
-    /**
-     * Test OCR functionality with a specific image.
-     * 
-     * @param context Application context
-     * @param imageName Name of the image in assets
-     * @param onResult Callback with the OCR result
-     */
-    fun testOCRWithImage(context: Context, imageName: String, onResult: (String) -> Unit) {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val exportedFile = exportImageFromAssets(context, imageName)
-                if (exportedFile != null) {
-                    val testResult = "OCR Test Result for $imageName"
-                    onResult(testResult)
-                } else {
-                    onResult("Failed to export image")
-                }
-            } catch (e: Exception) {
-                onResult("OCR test failed: ${e.message}")
-            }
-        }
-    }
-    
-    /**
-     * Test location extraction from image EXIF data.
-     * 
-     * @param context Application context
-     * @param imageName Name of the image in assets
-     * @param onResult Callback with location result
-     */
-    fun testLocationExtraction(context: Context, imageName: String, onResult: (String) -> Unit) {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val exportedFile = exportImageFromAssets(context, imageName)
-                if (exportedFile != null) {
-                    // Test location extraction using ImageProcessor instance
-                    val imageProcessor = ImageProcessor()
-                    val hasLocation = imageProcessor.hasLocationData(exportedFile)
-                    val location = imageProcessor.extractLocationFromFile(exportedFile)
-                    
-                    val result = if (hasLocation && location != null) {
-                        "Location found: ${location.first}, ${location.second}"
-                    } else {
-                        "No location data found in EXIF"
-                    }
-                    onResult(result)
-                } else {
-                    onResult("Failed to export image")
-                }
-            } catch (e: Exception) {
-                onResult("Location test failed: ${e.message}")
-            }
         }
     }
 }

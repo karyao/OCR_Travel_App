@@ -20,6 +20,7 @@ import com.karen_yao.chinesetravel.features.capture.camera.ImageProcessor
 import com.karen_yao.chinesetravel.features.home.ui.HomeFragment
 import com.karen_yao.chinesetravel.shared.utils.PinyinUtils
 import com.karen_yao.chinesetravel.shared.extensions.repo
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -38,6 +39,9 @@ class TextSelectionFragment : Fragment(R.layout.fragment_text_selection) {
     private lateinit var detectedTexts: List<String>
     private lateinit var imagePath: String
     private lateinit var selectedText: String
+    private var deleteImageIfUnsaved = false
+    private var imageSaved = false
+    private var managedFilesRoot: File? = null
     
     private lateinit var viewModel: CaptureViewModel
     private lateinit var imageProcessor: ImageProcessor
@@ -46,17 +50,20 @@ class TextSelectionFragment : Fragment(R.layout.fragment_text_selection) {
         private const val ARG_DETECTED_TEXTS = "detected_texts"
         private const val ARG_IMAGE_PATH = "image_path"
         private const val ARG_SELECTED_TEXT = "selected_text"
+        private const val ARG_DELETE_IMAGE_IF_UNSAVED = "delete_image_if_unsaved"
 
         fun newInstance(
             detectedTexts: List<String>,
             imagePath: String,
-            selectedText: String
+            selectedText: String,
+            deleteImageIfUnsaved: Boolean = false
         ): TextSelectionFragment {
             val fragment = TextSelectionFragment()
             val args = Bundle().apply {
                 putStringArray(ARG_DETECTED_TEXTS, detectedTexts.toTypedArray())
                 putString(ARG_IMAGE_PATH, imagePath)
                 putString(ARG_SELECTED_TEXT, selectedText)
+                putBoolean(ARG_DELETE_IMAGE_IF_UNSAVED, deleteImageIfUnsaved)
             }
             fragment.arguments = args
             return fragment
@@ -71,6 +78,8 @@ class TextSelectionFragment : Fragment(R.layout.fragment_text_selection) {
         detectedTexts = textsArray.toList()
         imagePath = arguments?.getString(ARG_IMAGE_PATH) ?: ""
         selectedText = arguments?.getString(ARG_SELECTED_TEXT) ?: ""
+        deleteImageIfUnsaved = arguments?.getBoolean(ARG_DELETE_IMAGE_IF_UNSAVED) ?: false
+        managedFilesRoot = requireContext().filesDir.canonicalFile
 
         // Debug logging
         android.util.Log.d("TextSelectionFragment", "📋 Received ${detectedTexts.size} text options:")
@@ -99,6 +108,7 @@ class TextSelectionFragment : Fragment(R.layout.fragment_text_selection) {
         rightText.visibility = View.GONE
 
         backButton.setOnClickListener {
+            deleteUnsavedImage()
             requireActivity().onBackPressedDispatcher.onBackPressed()
         }
     }
@@ -144,6 +154,7 @@ class TextSelectionFragment : Fragment(R.layout.fragment_text_selection) {
         val confirmButton = view.findViewById<Button>(R.id.btnConfirmSelection)
 
         cancelButton.setOnClickListener {
+            deleteUnsavedImage()
             requireActivity().onBackPressedDispatcher.onBackPressed()
         }
 
@@ -168,36 +179,42 @@ class TextSelectionFragment : Fragment(R.layout.fragment_text_selection) {
     private fun processSelectedText(chineseText: String) {
         val pinyin = if (chineseText.isNotBlank()) PinyinUtils.toPinyin(chineseText) else ""
 
-        lifecycleScope.launch {
+        viewLifecycleOwner.lifecycleScope.launch {
             try {
                 val file = File(imagePath)
                 val location = imageProcessor.extractLocationFromFile(file)
                 val address = if (location != null) {
                     reverseGeocode(location.first, location.second)
                 } else {
-                    "Unknown location"
+                    null
                 }
 
                 val totalCount = viewModel.saveAndCount(
                     chineseText, pinyin, location?.first, location?.second,
-                    address ?: "Unknown location", imagePath
+                    address, imagePath
                 )
 
+                imageSaved = true
                 Toast.makeText(requireContext(), "Saved. Total rows: $totalCount", Toast.LENGTH_SHORT).show()
                 
                 // Navigate back to home
                 parentFragmentManager.beginTransaction()
                     .replace(R.id.container, HomeFragment())
                     .commit()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
+                deleteUnsavedImage()
                 Toast.makeText(requireContext(), "Error saving: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    private suspend fun reverseGeocode(lat: Double, lng: Double): String? = withContext(Dispatchers.IO) {
+    private suspend fun reverseGeocode(lat: Double, lng: Double): String? {
+        val applicationContext = context?.applicationContext ?: return null
+        return withContext(Dispatchers.IO) {
         try {
-            val geocoder = Geocoder(requireContext(), Locale.getDefault())
+            val geocoder = Geocoder(applicationContext, Locale.getDefault())
             val addresses = geocoder.getFromLocation(lat, lng, 1)
             
             if (addresses?.isNotEmpty() == true) {
@@ -215,8 +232,27 @@ class TextSelectionFragment : Fragment(R.layout.fragment_text_selection) {
                 }
                 if (addressString.isNotEmpty()) addressString else null
             } else null
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             null
+        }
+        }
+    }
+
+    override fun onDestroy() {
+        if (isRemoving) deleteUnsavedImage()
+        super.onDestroy()
+    }
+
+    private fun deleteUnsavedImage() {
+        if (!deleteImageIfUnsaved || imageSaved || !::imagePath.isInitialized) return
+        val file = File(imagePath)
+        val filesRoot = managedFilesRoot ?: return
+        val candidate = runCatching { file.canonicalFile }.getOrNull() ?: return
+        if (candidate.path.startsWith(filesRoot.path + File.separator)) {
+            candidate.delete()
+            deleteImageIfUnsaved = false
         }
     }
 

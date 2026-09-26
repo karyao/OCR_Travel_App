@@ -1,95 +1,71 @@
-# Chinese Travel App
+# Chinese Travel
 
-## 🎯 What This App Does
+I started this Android app after a trip to China. I had taken photos of restaurant signs and places I visited, but later I often couldn't remember what they were called or where the photos were taken.
 
-A mobile app I built to solve a real problem I faced when traveling in China - not being able to read Chinese text or remember where I'd been.
+The app lets you photograph Chinese text, recognize it with ML Kit, translate it, and save it together with the photo and location.
 
-### The Problem I Wanted to Solve
+Still a work in progress! wanting to adjust the text recognition since it works for reasonably well and clear close-up signs, but busy backgrounds can still make mistakes.
 
-When I went back to China, I visited so many places but couldn't remember their names because I couldn't read Chinese. I'd take photos of signs and menus, but then forget what they said or where I took them. I wanted a way to:
+## What it does
 
-- Instantly understand Chinese text I encountered
-- Remember where I'd been with location context
-- Build a personal travel log of places I visited
+- Take a photo or choose one from the gallery.
+- Recognize Chinese text with ML Kit.
+- Select the relevant line when an image contains multiple results.
+- Show the pinyin and English translation.
+- Save the original photo and optional location information.
+- View saved places on a map.
 
-## 🚀 How It Works
+## How it works
 
-### 📸 **Take Photos of Chinese Text**
+The camera is built with CameraX, and Chinese text recognition uses ML Kit's on-device Chinese model. When an image contains multiple lines, the app lets you choose which result you want to save.
 
-- Point your camera at any Chinese text (signs, menus, documents)
-- The app uses Google's ML Kit to recognize Chinese characters
-- Works with both camera and gallery photos
-- Switch between front/back cameras easily
+Saved photos, recognized text, translations, and locations are stored locally with Room. Pinyin is generated on the device, and ML Kit handles Chinese-to-English translation. The translation model may need to be downloaded the first time it is used.
 
-### 🧠 **Get Instant Translations**
+Location is optional. When permission and a recent location are available, the app stores the coordinates with the photo and shows saved locations on an OpenStreetMap map.
 
-- Automatically translates Chinese to English
-- Shows Pinyin pronunciation to help you learn
-- Uses Google Translate for accurate results
-- Saves translations with location context
+## Running the project
 
-### 🗺️ **Remember Where You Were**
+1. Clone the repository.
+2. Open it in Android Studio.
+3. Allow Gradle to sync the project and download its dependencies.
+4. Run the `app` configuration on an emulator or Android device.
 
-- Captures your GPS location when you take photos
-- Shows addresses in readable English
-- Links to Google Maps for navigation
-- Builds a map of all the places you've visited
+The app supports Android 10 and newer. Camera permission is needed to take photos, while location permission is optional.
 
-### 📚 **Keep Your Travel History**
+## Current limitations
 
-- All translations saved locally on your phone
-- Search through your past captures
-- Export your travel log
-- Works offline for basic text recognition
+- OCR results depend heavily on focus, lighting, text size, and the amount of background in the image.
+- Busy scenes and distant signs can produce incorrect or duplicated characters.
+- The current image preprocessing does not consistently improve recognition accuracy.
+- Translation might not be available until its on-device model finishes downloading.
+- Reverse geocoding depends on the services available on the device.
 
-## 🛠️ Technical Details
+## Testing
 
-### **What I Built This With**
+The project contains unit tests for database, ViewModel, image-sampling, and OCR decision logic. It also contains Android instrumentation tests for the database, UI, EXIF metadata, and image preprocessing.
 
-- **Kotlin** - Modern Android development
-- **MVVM Architecture** - Clean separation of UI and business logic
-- **Room Database** - Local storage for all your translations
-- **CameraX** - Google's latest camera library for smooth photo capture
-- **Google ML Kit** - AI-powered Chinese text recognition
-- **Google Translate** - Accurate translation service
-- **Location Services** - GPS and address lookup
+There is a device-side OCR comparison test that measures the original and preprocessed versions of sample images using confidence, character error rate, and processing time. This is useful for checking whether an image-processing change actually helps instead of relying only on ML Kit confidence.
 
-### **Technical Challenges I Solved**
+To run the local unit tests and lint checks:
 
-- **Async Operations** - Managing OCR and translation without blocking the UI
-- **Error Handling** - Graceful fallbacks when things go wrong
-- **Performance** - Optimizing image processing and memory usage
+```bash
+./gradlew testDebugUnitTest lintDebug
+```
 
-## 📱 How to Use It
+To run the Android tests with an emulator or device connected:
 
-### **Simple 3-Step Process**
+```bash
+./gradlew connectedDebugAndroidTest
+```
 
-1. **Take a photo** of Chinese text (sign, menu, document)
-2. **Get instant translation** with pronunciation
-3. **Save with location** - automatically remembers where you were
+## Things I want to improve
 
-### **Cool Features I Added**
+- Add a crop or scan region so the target text fills more of the image.
+- Improve camera focus and low-light controls.
+- Build a larger labeled image set for measuring OCR accuracy.
+- Keep experimenting with resizing and image adjustments, but only use them when testing shows an improvement.
+- Continue cleaning up the capture flow and UI.
 
-- **Smart Text Selection** - Choose which lines to translate when multiple detected
-- **Location Memory** - Every translation remembers where you took it
-- **Google Maps Integration** - Tap to navigate back to places you've been
+## Demo
 
-## 🔒 Privacy & Permissions
-
-The app only asks for what it needs:
-
-- **Camera** - To take photos of text
-- **Location** - To remember where you found the text
-- **Storage** - To save your translations locally
-
-Everything is processed on your device when possible - only translation uses Google's service.
-
-## 🚀 What I'd Add Next
-
-- Add a new page with a visible map to showcase pins on where you have travelled
-- Support for other languages
-- Expand it to a guide to China
-- Share your travel discoveries with friends
-- Better image processing for tricky lighting
-
-### Demo Slides: https://www.canva.com/design/DAG2qomCLng/9fsaEYu4gz9h0B8irsffUw/view?utm_content=DAG2qomCLng&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=hda107d5dc7 
+[View the demo slides](https://www.canva.com/design/DAG2qomCLng/9fsaEYu4gz9h0B8irsffUw/view?utm_content=DAG2qomCLng&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=hda107d5dc7)

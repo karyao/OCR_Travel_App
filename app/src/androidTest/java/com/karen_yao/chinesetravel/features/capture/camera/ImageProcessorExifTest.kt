@@ -134,6 +134,37 @@ class ImageProcessorExifTest {
         assertEquals(filesBefore, preprocessedFiles(outputDirectory))
     }
 
+    @Test
+    fun preprocessingBoundsLargeImageAndPreservesAspectRatio() = runBlocking {
+        val source = createSolidJpeg("large.jpg", width = 3000, height = 2000)
+        val output = ImageProcessor().preprocessImageForOCR(source, source.parentFile!!)
+
+        val bounds = decodeBounds(output)
+        try {
+            assertTrue(bounds.first <= MAX_TEST_LONG_EDGE)
+            assertTrue(bounds.first.toLong() * bounds.second <= MAX_TEST_PIXEL_COUNT)
+            assertEquals(
+                3000f / 2000f,
+                bounds.first.toFloat() / bounds.second,
+                ASPECT_RATIO_TOLERANCE
+            )
+        } finally {
+            output.delete()
+        }
+    }
+
+    @Test
+    fun preprocessingKeepsSmallImageDimensions() = runBlocking {
+        val source = createSolidJpeg("small.jpg", width = 640, height = 480)
+        val output = ImageProcessor().preprocessImageForOCR(source, source.parentFile!!)
+
+        try {
+            assertEquals(640 to 480, decodeBounds(output))
+        } finally {
+            output.delete()
+        }
+    }
+
     private fun createJpeg(name: String): File {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val file = File(context.cacheDir, name)
@@ -172,6 +203,30 @@ class ImageProcessorExifTest {
         return file
     }
 
+    private fun createSolidJpeg(name: String, width: Int, height: Int): File {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val file = File(context.cacheDir, name)
+        file.delete()
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        try {
+            bitmap.eraseColor(Color.WHITE)
+            file.outputStream().use { output ->
+                check(bitmap.compress(Bitmap.CompressFormat.JPEG, 90, output))
+            }
+        } finally {
+            bitmap.recycle()
+        }
+        return file
+    }
+
+    private fun decodeBounds(file: File): Pair<Int, Int> {
+        val options = BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+        }
+        BitmapFactory.decodeFile(file.absolutePath, options)
+        return options.outWidth to options.outHeight
+    }
+
     private fun assertGrayscale(color: Int) {
         assertTrue(kotlin.math.abs(Color.red(color) - Color.green(color)) <= COLOR_TOLERANCE)
         assertTrue(kotlin.math.abs(Color.green(color) - Color.blue(color)) <= COLOR_TOLERANCE)
@@ -191,5 +246,8 @@ class ImageProcessorExifTest {
     private companion object {
         const val COORDINATE_TOLERANCE = 0.000001
         const val COLOR_TOLERANCE = 3
+        const val ASPECT_RATIO_TOLERANCE = 0.001f
+        const val MAX_TEST_LONG_EDGE = 2560
+        const val MAX_TEST_PIXEL_COUNT = 4_000_000L
     }
 }

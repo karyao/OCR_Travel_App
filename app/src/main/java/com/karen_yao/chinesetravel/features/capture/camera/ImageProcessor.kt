@@ -19,6 +19,27 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStream
 
+private const val MAX_OCR_LONG_EDGE = 2560
+private const val MAX_OCR_PIXEL_COUNT = 4_000_000L
+
+internal fun calculateOcrInSampleSize(width: Int, height: Int): Int {
+    if (width <= 0 || height <= 0) return 1
+
+    var sampleSize = 1
+    while (sampledImageExceedsLimits(width, height, sampleSize)) {
+        if (sampleSize > Int.MAX_VALUE / 2) return sampleSize
+        sampleSize *= 2
+    }
+    return sampleSize
+}
+
+private fun sampledImageExceedsLimits(width: Int, height: Int, sampleSize: Int): Boolean {
+    val sampledWidth = (width.toLong() + sampleSize - 1L) / sampleSize
+    val sampledHeight = (height.toLong() + sampleSize - 1L) / sampleSize
+    return maxOf(sampledWidth, sampledHeight) > MAX_OCR_LONG_EDGE ||
+        sampledWidth * sampledHeight > MAX_OCR_PIXEL_COUNT
+}
+
 /**
  * Handles image processing operations including EXIF data extraction.
  * Provides utilities for extracting location data from captured images.
@@ -80,7 +101,7 @@ class ImageProcessor(
             }
 
             originalBitmap = withContext(ioDispatcher) {
-                BitmapFactory.decodeFile(file.absolutePath)
+                decodeBoundedBitmap(file)
             } ?: return file
 
             currentCoroutineContext().ensureActive()
@@ -185,6 +206,27 @@ class ImageProcessor(
             saveAttributes()
         }
     }
+
+    private fun decodeBoundedBitmap(file: File): Bitmap? {
+        val bounds = readImageBounds(file) ?: return null
+        val options = BitmapFactory.Options().apply {
+            inSampleSize = calculateOcrInSampleSize(bounds.width, bounds.height)
+            inPreferredConfig = Bitmap.Config.ARGB_8888
+        }
+        return BitmapFactory.decodeFile(file.absolutePath, options)
+    }
+
+    private fun readImageBounds(file: File): ImageBounds? {
+        val options = BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+        }
+        BitmapFactory.decodeFile(file.absolutePath, options)
+        return if (options.outWidth > 0 && options.outHeight > 0) {
+            ImageBounds(options.outWidth, options.outHeight)
+        } else {
+            null
+        }
+    }
     
     /**
      * Check if image needs preprocessing based on quality indicators.
@@ -193,14 +235,12 @@ class ImageProcessor(
      * @return True if preprocessing is recommended
      */
     fun shouldPreprocessImage(file: File): Boolean {
-        var bitmap: Bitmap? = null
         return try {
-            bitmap = BitmapFactory.decodeFile(file.absolutePath)
-            if (bitmap == null) return false
-            
+            val bounds = readImageBounds(file) ?: return false
+
             // Check image dimensions (very small images might benefit from preprocessing)
-            val width = bitmap.width
-            val height = bitmap.height
+            val width = bounds.width
+            val height = bounds.height
             
             // Check if image is too small (less than 800px in either dimension)
             val isSmall = width < 800 || height < 800
@@ -212,10 +252,10 @@ class ImageProcessor(
             isSmall || isLarge
         } catch (e: Exception) {
             false
-        } finally {
-            bitmap?.recycle()
         }
     }
+
+    private data class ImageBounds(val width: Int, val height: Int)
 
     private companion object {
         const val JPEG_QUALITY = 90

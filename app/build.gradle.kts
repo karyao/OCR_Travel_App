@@ -48,7 +48,6 @@ dependencies {
     implementation(libs.material)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
-    implementation(libs.play.services.mlkit.text.recognition.chinese)
     testImplementation(libs.junit)
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
     androidTestImplementation(libs.androidx.junit)
@@ -71,7 +70,7 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:1.3.4")
     implementation("androidx.camera:camera-view:1.3.4")
 
-    // --- ML Kit for Chinese text recognition ---
+    // --- ML Kit for Chinese text recognition (bundled model for immediate availability) ---
     implementation("com.google.mlkit:vision-common:17.3.0")
     implementation("com.google.mlkit:text-recognition-chinese:16.0.1")
     

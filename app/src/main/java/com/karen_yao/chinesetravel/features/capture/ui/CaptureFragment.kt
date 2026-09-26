@@ -22,12 +22,10 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
-import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.text.TextRecognition
-import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
 import com.karen_yao.chinesetravel.R
 import com.karen_yao.chinesetravel.features.capture.camera.CameraManager
 import com.karen_yao.chinesetravel.features.capture.camera.ImageProcessor
+import com.karen_yao.chinesetravel.features.capture.camera.OcrPipeline
 import com.karen_yao.chinesetravel.features.textselection.ui.TextSelectionFragment
 import com.karen_yao.chinesetravel.shared.extensions.repo
 import com.karen_yao.chinesetravel.shared.location.DeviceLocationProvider
@@ -37,7 +35,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Locale
@@ -54,6 +51,7 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
     }
     private val cameraManager = CameraManager()
     private val imageProcessor = ImageProcessor()
+    private var ocrPipeline: OcrPipeline? = null
     private var isBackCamera = true
     private var captureJob: Job? = null
     private var imageProcessingJob: Job? = null
@@ -130,6 +128,12 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
         isGallerySelectionPending = false
         imageProcessingJob?.cancel()
         super.onDestroyView()
+    }
+
+    override fun onDestroy() {
+        ocrPipeline?.close()
+        ocrPipeline = null
+        super.onDestroy()
     }
     
     private fun setupHeader(view: View) {
@@ -419,8 +423,6 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
         imageProcessingJob = viewLifecycleOwner.lifecycleScope.launch {
             val runningJob = coroutineContext[Job]
             var originalFile = initialFile
-            var temporaryFile: File? = null
-            var recognizer: com.google.mlkit.vision.text.TextRecognizer? = null
             var stage = if (initialFile == null) {
                 ImageProcessingStage.IMPORTING
             } else {
@@ -430,25 +432,23 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
             updateCaptureControls()
             try {
                 originalFile = obtainOriginalFile(applicationContext)
-                stage = ImageProcessingStage.PREPARING
-                val preprocessedFile = imageProcessor.preprocessImageForOCR(
-                    checkNotNull(originalFile),
-                    cacheDirectory
-                )
-                temporaryFile = preprocessedFile
-                val image = withContext(Dispatchers.IO) {
-                    InputImage.fromFilePath(applicationContext, Uri.fromFile(preprocessedFile))
-                }
-
                 stage = ImageProcessingStage.RECOGNIZING
                 showMessage("Running OCR ($source)...")
-                recognizer = TextRecognition.getClient(
-                    ChineseTextRecognizerOptions.Builder().build()
+                val pipeline = ocrPipeline ?: OcrPipeline(
+                    applicationContext = applicationContext,
+                    imageProcessor = imageProcessor
+                ).also { ocrPipeline = it }
+                val outcome = pipeline.recognize(
+                    originalFile = checkNotNull(originalFile),
+                    cacheDirectory = cacheDirectory
                 )
-                val result = recognizer.process(image).await()
-                val allLines = result.text.lines()
-                    .map(String::trim)
-                    .filter(String::isNotEmpty)
+                Log.d(
+                    "CaptureFragment",
+                    "OCR confidence=${outcome.selectedPass.confidence}, " +
+                        "originalConfidence=${outcome.originalConfidence}, " +
+                        "usedEnhancedInput=${outcome.usedEnhancedInput}"
+                )
+                val allLines = outcome.selectedPass.lines.map { it.text }
 
                 when {
                     allLines.isEmpty() -> showNoTextDetectedDialog(
@@ -481,10 +481,6 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
                 }
                 showMessage(stage.errorMessage(exception))
             } finally {
-                recognizer?.close()
-                temporaryFile
-                    ?.takeIf { it != originalFile }
-                    ?.let { deleteFile(it) }
                 if (imageProcessingJob === runningJob) imageProcessingJob = null
                 updateCaptureControls()
             }
@@ -642,12 +638,6 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
     private suspend fun deleteManagedImage(file: File, filesRoot: File) {
         withContext(NonCancellable + Dispatchers.IO) {
             if (isManagedImage(file, filesRoot)) file.delete()
-        }
-    }
-
-    private suspend fun deleteFile(file: File) {
-        withContext(NonCancellable + Dispatchers.IO) {
-            file.delete()
         }
     }
 

@@ -189,12 +189,14 @@ class TextSelectionFragment : Fragment(R.layout.fragment_text_selection) {
                     null
                 }
 
+                // The transaction may commit before cancellation is delivered back to this
+                // fragment. Retain the image once persistence begins to protect any saved row.
+                imageSaved = true
                 val totalCount = viewModel.saveAndCount(
                     chineseText, pinyin, location?.first, location?.second,
                     address, imagePath
                 )
 
-                imageSaved = true
                 Toast.makeText(requireContext(), "Saved. Total rows: $totalCount", Toast.LENGTH_SHORT).show()
                 
                 // Navigate back to home

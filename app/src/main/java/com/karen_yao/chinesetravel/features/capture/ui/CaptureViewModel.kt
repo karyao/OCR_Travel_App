@@ -49,8 +49,7 @@ class CaptureViewModel(private val repository: TravelRepository) : ViewModel() {
             googleMapsLink = googleMapsLink
         )
         
-        repository.saveSnap(placeSnap)
-        return repository.getSnapCount()
+        return repository.saveSnapAndCount(placeSnap)
     }
 }
 

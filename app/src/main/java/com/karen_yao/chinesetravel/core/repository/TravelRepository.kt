@@ -32,6 +32,12 @@ class TravelRepository(private val database: AppDatabase) : SnapRepository {
      * Save a new place snap to the database.
      */
     suspend fun saveSnap(snap: PlaceSnap) = database.placeSnapDao().insert(snap)
+
+    /** Atomically saves a snap and returns the new total. */
+    suspend fun saveSnapAndCount(snap: PlaceSnap): Int = database.withTransaction {
+        database.placeSnapDao().insert(snap)
+        database.placeSnapDao().count()
+    }
     
     /**
      * Get the total count of saved snaps.

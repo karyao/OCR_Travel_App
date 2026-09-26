@@ -2,11 +2,13 @@
 package com.karen_yao.chinesetravel.features.capture.ui
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
 import android.location.Geocoder
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.widget.Button
 import android.widget.Toast
@@ -33,12 +35,12 @@ import com.karen_yao.chinesetravel.shared.utils.PinyinUtils
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Locale
-import android.util.Log
 
 /**
  * Camera fragment for capturing and processing Chinese text.
@@ -54,13 +56,21 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
     private val imageProcessor = ImageProcessor()
     private var isBackCamera = true
     private var captureJob: Job? = null
+    private var imageProcessingJob: Job? = null
+    private var isGallerySelectionPending = false
+    private var managedFilesRoot: File? = null
     private var activeCaptureId: Long? = null
     private var nextCaptureId = 0L
     private var pendingLocationPermissionCaptureId: Long? = null
 
     private val pickImage = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) processGalleryUri(uri)
-        else showMessage("No image selected")
+        isGallerySelectionPending = false
+        if (uri != null && view != null) {
+            processGalleryUri(uri)
+        } else {
+            updateCaptureControls()
+            if (uri == null) showMessage("No image selected")
+        }
     }
 
     private val cameraPermissionLauncher =
@@ -90,6 +100,7 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        managedFilesRoot = requireContext().filesDir
         setupHeader(view)
         setupButtons(view)
         requestCameraPermissionAndStart(view.findViewById(R.id.previewView))
@@ -116,6 +127,8 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
 
     override fun onDestroyView() {
         cancelPendingCapture()
+        isGallerySelectionPending = false
+        imageProcessingJob?.cancel()
         super.onDestroyView()
     }
     
@@ -137,13 +150,25 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
     
     private fun setupButtons(view: View) {
         view.findViewById<Button>(R.id.btnShoot).setOnClickListener { takePhoto() }
-        view.findViewById<Button>(R.id.btnGallery).setOnClickListener {
-            pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-        }
+        view.findViewById<Button>(R.id.btnGallery).setOnClickListener { launchGalleryPicker() }
         view.findViewById<Button>(R.id.btnSwitchCamera).setOnClickListener { switchCamera() }
         
         // Update switch button text based on current camera
         updateSwitchButtonText(view)
+    }
+
+    private fun launchGalleryPicker() {
+        if (isCaptureBusy()) return
+
+        isGallerySelectionPending = true
+        updateCaptureControls()
+        try {
+            pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+        } catch (exception: Exception) {
+            isGallerySelectionPending = false
+            updateCaptureControls()
+            showMessage("Could not open the photo picker: ${exception.message}")
+        }
     }
     
     private fun updateSwitchButtonText(view: View) {
@@ -214,7 +239,7 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
     }
     
     private fun switchCamera() {
-        if (activeCaptureId != null) return
+        if (isCaptureBusy()) return
         val previewView = view?.findViewById<PreviewView>(R.id.previewView)
         if (previewView != null) {
             showMessage("Switching camera...")
@@ -234,7 +259,7 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
     }
 
     private fun takePhoto() {
-        if (activeCaptureId != null) return
+        if (isCaptureBusy()) return
         if (!cameraManager.isCameraReady()) {
             showMessage("Camera not ready. Please wait...")
             return
@@ -242,7 +267,7 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
         
         val captureId = ++nextCaptureId
         activeCaptureId = captureId
-        setCaptureControlsEnabled(false)
+        updateCaptureControls()
 
         if (DeviceLocationProvider.hasLocationPermission(requireContext())) {
             acquireLocationAndCapture(captureId)
@@ -310,13 +335,13 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
                         finishCapture(captureId)
                         return
                     }
-                    finishCapture(captureId)
                     if (location != null) {
                         showMessage("Photo captured with location. Processing…")
                     } else {
                         showMessage("Photo captured without location. ${locationFailure.orEmpty()}")
                     }
                     processCapturedFile(file)
+                    finishCapture(captureId)
                 }
             }
         )
@@ -334,7 +359,7 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
         captureJob = null
         activeCaptureId = null
         pendingLocationPermissionCaptureId = null
-        setCaptureControlsEnabled(true)
+        updateCaptureControls()
     }
 
     private fun cancelPendingCapture() {
@@ -342,14 +367,18 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
         captureJob = null
         activeCaptureId = null
         pendingLocationPermissionCaptureId = null
-        setCaptureControlsEnabled(true)
+        updateCaptureControls()
     }
 
-    private fun setCaptureControlsEnabled(enabled: Boolean) {
+    private fun updateCaptureControls() {
+        val enabled = !isCaptureBusy()
         view?.findViewById<Button>(R.id.btnShoot)?.isEnabled = enabled
         view?.findViewById<Button>(R.id.btnGallery)?.isEnabled = enabled
         view?.findViewById<Button>(R.id.btnSwitchCamera)?.isEnabled = enabled
     }
+
+    private fun isCaptureBusy(): Boolean =
+        activeCaptureId != null || isGallerySelectionPending || imageProcessingJob?.isActive == true
 
     private fun locationFailureMessage(reason: DeviceLocationProvider.FailureReason): String =
         when (reason) {
@@ -361,88 +390,130 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
         }
 
     private fun processCapturedFile(file: File) {
-        prepareAndProcessImage(file, "camera")
+        startImageProcessing(file, "camera") { _ -> file }
     }
 
     private fun processGalleryUri(uri: Uri) {
-        val context = context ?: return
-        val importDirectory = File(context.filesDir, IMPORT_DIRECTORY).apply { mkdirs() }
-        val file = File(importDirectory, "gal_${System.currentTimeMillis()}.jpg")
-
-        try {
-            val inputStream = context.contentResolver.openInputStream(uri)
-                ?: throw IllegalStateException("The selected image could not be opened")
-            inputStream.use { source ->
-                file.outputStream().use { destination -> source.copyTo(destination) }
-            }
-            if (file.length() == 0L) throw IllegalStateException("The selected image was empty")
-            prepareAndProcessImage(file, "gallery")
-        } catch (exception: Exception) {
-            file.delete()
-            showMessage("Could not import image: ${exception.message}")
+        startImageProcessing(null, "gallery") { applicationContext ->
+            importGalleryImage(applicationContext, uri)
         }
     }
 
-    private fun prepareAndProcessImage(file: File, source: String) {
-        val context = context ?: run {
-            file.delete()
+    private fun startImageProcessing(
+        initialFile: File?,
+        source: String,
+        obtainOriginalFile: suspend (Context) -> File
+    ) {
+        if (imageProcessingJob?.isActive == true) {
+            initialFile?.delete()
             return
         }
-        var temporaryFile: File? = null
-        try {
-            temporaryFile = imageProcessor.preprocessImageForOCR(file, context.cacheDir)
-            val image = InputImage.fromFilePath(context, Uri.fromFile(temporaryFile))
-            processImageWithOCR(image, file, source, temporaryFile)
-        } catch (exception: Exception) {
-            if (temporaryFile != file) temporaryFile?.delete()
-            deleteUnreferencedImage(file.absolutePath)
-            showMessage("Could not process image: ${exception.message}")
-        }
-    }
 
-    private fun processImageWithOCR(
-        image: InputImage,
-        file: File,
-        source: String,
-        temporaryFile: File
-    ) {
-        showMessage("Running OCR ($source)...")
-        
-        // Use Google ML Kit for Chinese text recognition - SIMPLIFIED
-        val recognizer = TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
-        
-        viewLifecycleOwner.lifecycleScope.launch {
+        val applicationContext = context?.applicationContext ?: run {
+            initialFile?.delete()
+            return
+        }
+        val filesRoot = managedFilesRoot ?: applicationContext.filesDir
+        val cacheDirectory = applicationContext.cacheDir
+
+        imageProcessingJob = viewLifecycleOwner.lifecycleScope.launch {
+            val runningJob = coroutineContext[Job]
+            var originalFile = initialFile
+            var temporaryFile: File? = null
+            var recognizer: com.google.mlkit.vision.text.TextRecognizer? = null
+            var stage = if (initialFile == null) {
+                ImageProcessingStage.IMPORTING
+            } else {
+                ImageProcessingStage.PREPARING
+            }
+
+            updateCaptureControls()
             try {
+                originalFile = obtainOriginalFile(applicationContext)
+                stage = ImageProcessingStage.PREPARING
+                val preprocessedFile = imageProcessor.preprocessImageForOCR(
+                    checkNotNull(originalFile),
+                    cacheDirectory
+                )
+                temporaryFile = preprocessedFile
+                val image = withContext(Dispatchers.IO) {
+                    InputImage.fromFilePath(applicationContext, Uri.fromFile(preprocessedFile))
+                }
+
+                stage = ImageProcessingStage.RECOGNIZING
+                showMessage("Running OCR ($source)...")
+                recognizer = TextRecognition.getClient(
+                    ChineseTextRecognizerOptions.Builder().build()
+                )
                 val result = recognizer.process(image).await()
-                val rawText = result.text
-                
-                val allLines = rawText.lines()
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() }
-                
+                val allLines = result.text.lines()
+                    .map(String::trim)
+                    .filter(String::isNotEmpty)
+
                 when {
-                    allLines.isEmpty() -> showNoTextDetectedDialog(file.absolutePath)
-                    allLines.size > 1 -> showTextSelectionScreen(allLines, file.absolutePath)
+                    allLines.isEmpty() -> showNoTextDetectedDialog(
+                        checkNotNull(originalFile).absolutePath
+                    )
+                    allLines.size > 1 -> showTextSelectionScreen(
+                        allLines,
+                        checkNotNull(originalFile).absolutePath
+                    )
+                    allLines.first().length >= 2 -> {
+                        // From this point onward the database may commit even if cancellation is
+                        // delivered before the result reaches this fragment. Preserve the image;
+                        // a failed save can leave an orphan, but never a row with a deleted file.
+                        stage = ImageProcessingStage.SAVING
+                        saveSelectedText(allLines.first(), checkNotNull(originalFile))
+                    }
                     else -> {
-                        val textToProcess = allLines.first()
-                        if (textToProcess.length >= 2) {
-                            processSelectedText(textToProcess, file)
-                        } else {
-                            showMessage("Text too short, please try again")
-                            deleteUnreferencedImage(file.absolutePath)
-                        }
+                        showMessage("Text too short, please try again")
+                        deleteManagedImage(checkNotNull(originalFile), filesRoot)
                     }
                 }
             } catch (exception: CancellationException) {
-                deleteUnreferencedImage(file.absolutePath)
+                if (stage != ImageProcessingStage.SAVING) {
+                    originalFile?.let { deleteManagedImage(it, filesRoot) }
+                }
                 throw exception
             } catch (exception: Exception) {
-                showMessage("OCR failed: ${exception.message}")
-                deleteUnreferencedImage(file.absolutePath)
+                if (stage != ImageProcessingStage.SAVING) {
+                    originalFile?.let { deleteManagedImage(it, filesRoot) }
+                }
+                showMessage(stage.errorMessage(exception))
             } finally {
-                recognizer.close()
-                if (temporaryFile != file) temporaryFile.delete()
+                recognizer?.close()
+                temporaryFile
+                    ?.takeIf { it != originalFile }
+                    ?.let { deleteFile(it) }
+                if (imageProcessingJob === runningJob) imageProcessingJob = null
+                updateCaptureControls()
             }
+        }
+        updateCaptureControls()
+    }
+
+    private suspend fun importGalleryImage(
+        applicationContext: Context,
+        uri: Uri
+    ): File = withContext(Dispatchers.IO) {
+        val importDirectory = File(applicationContext.filesDir, IMPORT_DIRECTORY)
+        check(importDirectory.exists() || importDirectory.mkdirs()) {
+            "Could not create the gallery import directory"
+        }
+        val file = File.createTempFile("gal_", ".jpg", importDirectory)
+
+        try {
+            applicationContext.contentResolver.openInputStream(uri).use { sourceStream ->
+                checkNotNull(sourceStream) { "The selected image could not be opened" }
+                file.outputStream().use { destination ->
+                    sourceStream.copyTo(destination)
+                }
+            }
+            check(file.length() > 0L) { "The selected image was empty" }
+            file
+        } catch (exception: Exception) {
+            file.delete()
+            throw exception
         }
     }
 
@@ -463,33 +534,27 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
             .commit()
     }
 
-    private fun processSelectedText(chineseText: String, file: File) {
+    private suspend fun saveSelectedText(chineseText: String, file: File) {
         val pinyin = if (chineseText.isNotBlank()) PinyinUtils.toPinyin(chineseText) else ""
 
-        viewLifecycleOwner.lifecycleScope.launch {
-            try {
-                val location = imageProcessor.extractLocationFromFile(file)
-                val address = location?.let { (lat, lng) -> reverseGeocode(lat, lng) }
-                val totalCount = viewModel.saveAndCount(
-                    chineseText,
-                    pinyin,
-                    location?.first,
-                    location?.second,
-                    address,
-                    file.absolutePath
-                )
+        val location = withContext(Dispatchers.IO) {
+            imageProcessor.extractLocationFromFile(file)
+        }
+        val address = location?.let { (lat, lng) -> reverseGeocode(lat, lng) }
+        val totalCount = viewModel.saveAndCount(
+            chineseText,
+            pinyin,
+            location?.first,
+            location?.second,
+            address,
+            file.absolutePath
+        )
 
-                if (view != null) {
-                    Toast.makeText(requireContext(), "Saved. Total rows: $totalCount", Toast.LENGTH_SHORT).show()
-                    requireActivity().onBackPressedDispatcher.onBackPressed()
-                }
-            } catch (exception: CancellationException) {
-                deleteUnreferencedImage(file.absolutePath)
-                throw exception
-            } catch (exception: Exception) {
-                deleteUnreferencedImage(file.absolutePath)
-                showMessage("Save failed: ${exception.message}")
+        if (view != null) {
+            context?.let {
+                Toast.makeText(it, "Saved. Total rows: $totalCount", Toast.LENGTH_SHORT).show()
             }
+            activity?.onBackPressedDispatcher?.onBackPressed()
         }
     }
 
@@ -532,13 +597,10 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
             }
             .setNegativeButton("📁 Choose from Gallery") { _, _ ->
                 deleteUnreferencedImage(imagePath)
-                // Open gallery picker
-                pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                launchGalleryPicker()
             }
             .setNeutralButton("✅ Use This Text") { _, _ ->
-                // Process the text anyway
-                val file = File(imagePath)
-                processSelectedText(detectedText, file)
+                startSelectedTextSave(detectedText, File(imagePath))
             }
             .create()
         
@@ -563,8 +625,7 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
             }
             .setNegativeButton("📁 Choose from Gallery") { _, _ ->
                 deleteUnreferencedImage(imagePath)
-                // Open gallery picker
-                pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                launchGalleryPicker()
             }
             .setNeutralButton("🏠 Back to Home") { _, _ ->
                 deleteUnreferencedImage(imagePath)
@@ -578,12 +639,64 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
         dialog.show()
     }
 
+    private suspend fun deleteManagedImage(file: File, filesRoot: File) {
+        withContext(NonCancellable + Dispatchers.IO) {
+            if (isManagedImage(file, filesRoot)) file.delete()
+        }
+    }
+
+    private suspend fun deleteFile(file: File) {
+        withContext(NonCancellable + Dispatchers.IO) {
+            file.delete()
+        }
+    }
+
     private fun deleteUnreferencedImage(imagePath: String) {
+        val filesRoot = managedFilesRoot ?: return
         val file = File(imagePath)
-        val filesRoot = requireContext().filesDir.canonicalFile
-        val candidate = runCatching { file.canonicalFile }.getOrNull() ?: return
-        if (candidate.path.startsWith(filesRoot.path + File.separator)) {
-            candidate.delete()
+        if (isManagedImage(file, filesRoot)) file.delete()
+    }
+
+    private fun isManagedImage(file: File, filesRoot: File): Boolean {
+        val canonicalRoot = runCatching { filesRoot.canonicalFile }.getOrNull() ?: return false
+        val candidate = runCatching { file.canonicalFile }.getOrNull() ?: return false
+        return candidate.path.startsWith(canonicalRoot.path + File.separator)
+    }
+
+    private fun startSelectedTextSave(chineseText: String, file: File) {
+        if (imageProcessingJob?.isActive == true) return
+        if (managedFilesRoot == null) return
+
+        // Saving may commit before cancellation is observed, so this path deliberately retains
+        // the image on failure rather than risk invalidating a persisted database reference.
+        imageProcessingJob = viewLifecycleOwner.lifecycleScope.launch {
+            val runningJob = coroutineContext[Job]
+            updateCaptureControls()
+            try {
+                saveSelectedText(chineseText, file)
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (exception: Exception) {
+                showMessage("Save failed: ${exception.message}")
+            } finally {
+                if (imageProcessingJob === runningJob) imageProcessingJob = null
+                updateCaptureControls()
+            }
+        }
+        updateCaptureControls()
+    }
+
+    private enum class ImageProcessingStage {
+        IMPORTING,
+        PREPARING,
+        RECOGNIZING,
+        SAVING;
+
+        fun errorMessage(exception: Exception): String = when (this) {
+            IMPORTING -> "Could not import image: ${exception.message}"
+            PREPARING -> "Could not process image: ${exception.message}"
+            RECOGNIZING -> "OCR failed: ${exception.message}"
+            SAVING -> "Save failed: ${exception.message}"
         }
     }
 

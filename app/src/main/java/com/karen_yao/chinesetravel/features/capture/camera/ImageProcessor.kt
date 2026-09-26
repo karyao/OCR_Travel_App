@@ -8,14 +8,28 @@ import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import androidx.exifinterface.media.ExifInterface
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import java.io.OutputStream
 
 /**
  * Handles image processing operations including EXIF data extraction.
  * Provides utilities for extracting location data from captured images.
  */
-class ImageProcessor {
+class ImageProcessor(
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val computationDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    private val compressBitmap: (Bitmap, OutputStream) -> Boolean = { bitmap, output ->
+        bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, output)
+    }
+) {
     
     /**
      * Extract location coordinates from image EXIF data.
@@ -51,30 +65,61 @@ class ImageProcessor {
      * @param file The original image file
      * @return Preprocessed image file optimized for OCR
      */
-    fun preprocessImageForOCR(file: File, outputDirectory: File = file.parentFile ?: File(".")): File {
+    suspend fun preprocessImageForOCR(
+        file: File,
+        outputDirectory: File = file.parentFile ?: File(".")
+    ): File {
+        var originalBitmap: Bitmap? = null
+        var preprocessedBitmap: Bitmap? = null
+        var preprocessedFile: File? = null
+
         return try {
-            // Load original bitmap
-            val originalBitmap = BitmapFactory.decodeFile(file.absolutePath)
-                ?: return file // Return original if can't decode
-            
-            // Apply preprocessing
-            val preprocessedBitmap = enhanceImageForOCR(originalBitmap)
-            
-            // Save preprocessed image
-            outputDirectory.mkdirs()
-            val preprocessedFile = File(outputDirectory, "preprocessed_${file.name}")
-            FileOutputStream(preprocessedFile).use { out ->
-                preprocessedBitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+            currentCoroutineContext().ensureActive()
+            val orientation = withContext(ioDispatcher) {
+                readOrientation(file)
             }
-            
-            // Recycle bitmaps to free memory
-            originalBitmap.recycle()
-            preprocessedBitmap.recycle()
-            
-            preprocessedFile
-        } catch (e: Exception) {
-            // Return original file if preprocessing fails
+
+            originalBitmap = withContext(ioDispatcher) {
+                BitmapFactory.decodeFile(file.absolutePath)
+            } ?: return file
+
+            currentCoroutineContext().ensureActive()
+            preprocessedBitmap = withContext(computationDispatcher) {
+                enhanceImageForOCR(checkNotNull(originalBitmap))
+            }
+
+            currentCoroutineContext().ensureActive()
+            preprocessedFile = withContext(ioDispatcher) {
+                check(outputDirectory.exists() || outputDirectory.mkdirs()) {
+                    "Could not create the OCR output directory"
+                }
+                File.createTempFile(PREPROCESSED_FILE_PREFIX, JPEG_SUFFIX, outputDirectory)
+            }
+
+            withContext(ioDispatcher) {
+                FileOutputStream(checkNotNull(preprocessedFile)).use { output ->
+                    check(compressBitmap(checkNotNull(preprocessedBitmap), output)) {
+                        "Could not encode the preprocessed image"
+                    }
+                }
+                copyOrientation(checkNotNull(preprocessedFile), orientation)
+            }
+
+            currentCoroutineContext().ensureActive()
+            checkNotNull(preprocessedFile)
+        } catch (exception: CancellationException) {
+            withContext(NonCancellable + ioDispatcher) {
+                preprocessedFile?.delete()
+            }
+            throw exception
+        } catch (exception: Exception) {
+            withContext(NonCancellable + ioDispatcher) {
+                preprocessedFile?.delete()
+            }
             file
+        } finally {
+            preprocessedBitmap?.recycle()
+            originalBitmap?.recycle()
         }
     }
     
@@ -85,7 +130,7 @@ class ImageProcessor {
      * @param bitmap The original bitmap
      * @return Enhanced bitmap optimized for OCR
      */
-    private fun enhanceImageForOCR(bitmap: Bitmap): Bitmap {
+    internal fun enhanceImageForOCR(bitmap: Bitmap): Bitmap {
         // Create a new bitmap with the same dimensions
         val enhancedBitmap = Bitmap.createBitmap(
             bitmap.width, 
@@ -93,29 +138,52 @@ class ImageProcessor {
             Bitmap.Config.ARGB_8888
         )
         
-        val canvas = Canvas(enhancedBitmap)
-        val paint = Paint()
-        
-        // Apply grayscale and contrast enhancement
-        val colorMatrix = ColorMatrix()
-        
-        // Convert to grayscale
-        colorMatrix.setSaturation(0f)
-        
-        // Enhance contrast (increase contrast by 1.5x)
-        val contrast = 1.5f
-        val translate = (-128f * contrast + 128f)
-        colorMatrix.set(floatArrayOf(
-            contrast, 0f, 0f, 0f, translate,
-            0f, contrast, 0f, 0f, translate,
-            0f, 0f, contrast, 0f, translate,
-            0f, 0f, 0f, 1f, 0f
-        ))
-        
-        paint.colorFilter = ColorMatrixColorFilter(colorMatrix)
-        canvas.drawBitmap(bitmap, 0f, 0f, paint)
-        
-        return enhancedBitmap
+        return try {
+            val canvas = Canvas(enhancedBitmap)
+            val paint = Paint()
+
+            // Apply grayscale and contrast enhancement
+            val grayscaleMatrix = ColorMatrix().apply {
+                setSaturation(0f)
+            }
+
+            // Enhance contrast (increase contrast by 1.5x)
+            val contrast = 1.5f
+            val translate = (-128f * contrast + 128f)
+            val contrastMatrix = ColorMatrix(floatArrayOf(
+                contrast, 0f, 0f, 0f, translate,
+                0f, contrast, 0f, 0f, translate,
+                0f, 0f, contrast, 0f, translate,
+                0f, 0f, 0f, 1f, 0f
+            ))
+
+            // postConcat applies the contrast matrix after grayscale conversion.
+            grayscaleMatrix.postConcat(contrastMatrix)
+
+            paint.colorFilter = ColorMatrixColorFilter(grayscaleMatrix)
+            canvas.drawBitmap(bitmap, 0f, 0f, paint)
+            enhancedBitmap
+        } catch (exception: Exception) {
+            enhancedBitmap.recycle()
+            throw exception
+        }
+    }
+
+    private fun readOrientation(file: File): Int =
+        runCatching {
+            ExifInterface(file).getAttributeInt(
+                ExifInterface.TAG_ORIENTATION,
+                ExifInterface.ORIENTATION_UNDEFINED
+            )
+        }.getOrDefault(ExifInterface.ORIENTATION_UNDEFINED)
+
+    private fun copyOrientation(file: File, orientation: Int) {
+        if (orientation == ExifInterface.ORIENTATION_UNDEFINED) return
+
+        ExifInterface(file).apply {
+            setAttribute(ExifInterface.TAG_ORIENTATION, orientation.toString())
+            saveAttributes()
+        }
     }
     
     /**
@@ -125,8 +193,9 @@ class ImageProcessor {
      * @return True if preprocessing is recommended
      */
     fun shouldPreprocessImage(file: File): Boolean {
+        var bitmap: Bitmap? = null
         return try {
-            val bitmap = BitmapFactory.decodeFile(file.absolutePath)
+            bitmap = BitmapFactory.decodeFile(file.absolutePath)
             if (bitmap == null) return false
             
             // Check image dimensions (very small images might benefit from preprocessing)
@@ -139,13 +208,19 @@ class ImageProcessor {
             // Check if image is very large (might be too detailed)
             val isLarge = width > 3000 || height > 3000
             
-            bitmap.recycle()
-            
             // Recommend preprocessing for small images or very large images
             isSmall || isLarge
         } catch (e: Exception) {
             false
+        } finally {
+            bitmap?.recycle()
         }
+    }
+
+    private companion object {
+        const val JPEG_QUALITY = 90
+        const val PREPROCESSED_FILE_PREFIX = "preprocessed_"
+        const val JPEG_SUFFIX = ".jpg"
     }
     
     /**

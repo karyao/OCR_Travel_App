@@ -81,6 +81,17 @@ class PlaceSnapDaoTest {
         assertTrue(allSnaps.single { it.id == first.id }.lat == null)
     }
 
+    @Test
+    fun saveSnapAndCountPersistsAndReturnsCountInOneTransaction() = runBlocking {
+        val repository = TravelRepository(database)
+        dao.insert(snap("existing", null, null))
+
+        val count = repository.saveSnapAndCount(snap("new", 49.2827, -123.1207))
+
+        assertEquals(2, count)
+        assertEquals(setOf("existing", "new"), dao.allSnaps().first().map { it.id }.toSet())
+    }
+
     private fun snap(id: String, lat: Double?, longitude: Double?) = PlaceSnap(
         id = id,
         imagePath = "",

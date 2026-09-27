@@ -5,6 +5,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import com.karen_yao.chinesetravel.core.database.AppDatabase
 import com.karen_yao.chinesetravel.core.repository.TravelRepository
+import com.karen_yao.chinesetravel.features.capture.ui.CaptureDependencies
+import com.karen_yao.chinesetravel.features.capture.ui.productionCaptureDependencies
 import com.karen_yao.chinesetravel.features.welcome.ui.WelcomeFragment
 
 /**
@@ -29,6 +31,9 @@ class MainActivity : AppCompatActivity() {
                 .commit()
         }
     }
+
+    internal fun createCaptureDependencies(): CaptureDependencies =
+        productionCaptureDependencies(this, repository)
 }
 
 /**

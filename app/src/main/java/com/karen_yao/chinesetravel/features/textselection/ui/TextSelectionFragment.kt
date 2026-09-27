@@ -14,12 +14,13 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.karen_yao.chinesetravel.R
+import com.karen_yao.chinesetravel.MainActivity
 import com.karen_yao.chinesetravel.core.repository.TravelRepository
-import com.karen_yao.chinesetravel.features.capture.ui.CaptureViewModel
+import com.karen_yao.chinesetravel.features.capture.ui.CaptureDependenciesOwner
+import com.karen_yao.chinesetravel.features.capture.ui.CapturePersistence
 import com.karen_yao.chinesetravel.features.capture.camera.ImageProcessor
 import com.karen_yao.chinesetravel.features.home.ui.HomeFragment
 import com.karen_yao.chinesetravel.shared.utils.PinyinUtils
-import com.karen_yao.chinesetravel.shared.extensions.repo
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -43,7 +44,7 @@ class TextSelectionFragment : Fragment(R.layout.fragment_text_selection) {
     private var imageSaved = false
     private var managedFilesRoot: File? = null
     
-    private lateinit var viewModel: CaptureViewModel
+    private lateinit var persistence: CapturePersistence
     private lateinit var imageProcessor: ImageProcessor
 
     companion object {
@@ -88,8 +89,12 @@ class TextSelectionFragment : Fragment(R.layout.fragment_text_selection) {
         }
 
         // Initialize ViewModel and ImageProcessor
-        val repository = repo()
-        viewModel = CaptureViewModel(repository)
+        val repository = when (val host = requireActivity()) {
+            is MainActivity -> host.repository
+            is CaptureDependenciesOwner -> host.createCaptureDependencies().repository
+            else -> error("TextSelectionFragment host must provide a repository")
+        }
+        persistence = CapturePersistence(repository)
         imageProcessor = ImageProcessor()
 
         setupHeader(view)
@@ -192,7 +197,7 @@ class TextSelectionFragment : Fragment(R.layout.fragment_text_selection) {
                 // The transaction may commit before cancellation is delivered back to this
                 // fragment. Retain the image once persistence begins to protect any saved row.
                 imageSaved = true
-                val totalCount = viewModel.saveAndCount(
+                val totalCount = persistence.saveAndCount(
                     chineseText, pinyin, location?.first, location?.second,
                     address, imagePath
                 )

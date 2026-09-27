@@ -93,7 +93,9 @@ class HomeFragmentTest {
         launchHome().use { scenario ->
             awaitItemCount(scenario, 2)
 
-            onView(withId(R.id.btnHeaderOverflow)).perform(click())
+            scenario.onActivity { activity ->
+                activity.findViewById<View>(R.id.btnHeaderOverflow).performClick()
+            }
             onView(withText(R.string.home_clear_all)).perform(click())
             assertEquals(2, repository.getSnapCount())
 
@@ -133,6 +135,7 @@ class HomeFragmentTest {
             awaitItemCount(scenario, 1)
             onView(withId(R.id.tvGoogleMapsLink)).check(matches(withEffectiveVisibilityGone()))
         }
+        Unit
     }
 
     private fun launchHome(): ActivityScenario<MainActivity> =

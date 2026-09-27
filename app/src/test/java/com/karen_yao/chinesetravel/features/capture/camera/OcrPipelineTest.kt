@@ -9,6 +9,11 @@ import org.junit.Test
 class OcrPipelineTest {
 
     @Test
+    fun fastPathThresholdRemainsSeventyFivePercent() {
+        assertEquals(0.75f, MIN_FAST_PATH_CONFIDENCE, 0f)
+    }
+
+    @Test
     fun highConfidenceOriginalUsesFastPath() {
         val pass = OcrPass(listOf(OcrLine("八邑酒楼", 0.92f)))
 

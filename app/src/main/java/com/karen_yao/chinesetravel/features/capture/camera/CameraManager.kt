@@ -7,7 +7,6 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
-import java.util.concurrent.Executor
 
 /**
  * Manages camera functionality for photo capture.
@@ -19,6 +18,7 @@ class CameraManager {
     private var preview: Preview? = null
     private var imageCapture: ImageCapture? = null
     private var currentCameraSelector: CameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+    private var bindingGeneration = 0L
 
     /**
      * Start the camera with preview.
@@ -32,24 +32,29 @@ class CameraManager {
         context: Context,
         previewView: PreviewView,
         lifecycleOwner: LifecycleOwner,
+        onError: (String) -> Unit,
         onImageCaptureReady: (ImageCapture) -> Unit
     ) {
+        val generation = ++bindingGeneration
         val providerFuture = ProcessCameraProvider.getInstance(context)
         providerFuture.addListener({
+            if (generation != bindingGeneration ||
+                lifecycleOwner.lifecycle.currentState == androidx.lifecycle.Lifecycle.State.DESTROYED
+            ) return@addListener
             try {
                 cameraProvider = providerFuture.get()
-                setupCamera(context, previewView, lifecycleOwner, onImageCaptureReady)
+                setupCamera(previewView, lifecycleOwner, onError, onImageCaptureReady)
             } catch (exception: Exception) {
                 android.util.Log.e("CameraManager", "Camera setup failed: ${exception.message}", exception)
-                android.widget.Toast.makeText(context, "Camera setup failed: ${exception.message}", android.widget.Toast.LENGTH_LONG).show()
+                onError("Camera setup failed: ${exception.message}")
             }
         }, ContextCompat.getMainExecutor(context))
     }
 
     private fun setupCamera(
-        context: Context,
         previewView: PreviewView,
         lifecycleOwner: LifecycleOwner,
+        onError: (String) -> Unit,
         onImageCaptureReady: (ImageCapture) -> Unit
     ) {
         val cameraProvider = this.cameraProvider ?: return
@@ -81,7 +86,8 @@ class CameraManager {
             imageCapture?.let { onImageCaptureReady(it) }
         } catch (exception: Exception) {
             android.util.Log.e("CameraManager", "Camera binding failed: ${exception.message}", exception)
-            android.widget.Toast.makeText(context, "Camera binding failed: ${exception.message}", android.widget.Toast.LENGTH_LONG).show()
+            imageCapture = null
+            onError("Camera binding failed: ${exception.message}")
         }
     }
 
@@ -92,6 +98,7 @@ class CameraManager {
         context: Context,
         previewView: PreviewView,
         lifecycleOwner: LifecycleOwner,
+        onError: (String) -> Unit,
         onImageCaptureReady: (ImageCapture) -> Unit
     ) {
         currentCameraSelector = if (currentCameraSelector == CameraSelector.DEFAULT_BACK_CAMERA) {
@@ -103,7 +110,7 @@ class CameraManager {
         // Switch camera
         
         // Restart camera with new selector
-        startCamera(context, previewView, lifecycleOwner, onImageCaptureReady)
+        startCamera(context, previewView, lifecycleOwner, onError, onImageCaptureReady)
     }
     
     /**
@@ -124,6 +131,7 @@ class CameraManager {
      * Stop the camera and release resources.
      */
     fun stopCamera() {
+        bindingGeneration++
         cameraProvider?.unbindAll()
         cameraProvider = null
         preview = null

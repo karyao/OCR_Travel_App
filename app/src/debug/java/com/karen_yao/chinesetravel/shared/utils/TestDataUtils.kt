@@ -312,16 +312,18 @@ object TestDataUtils {
     ): OcrSampleResult = withContext(Dispatchers.IO) {
         val sourceFile = exportImageFromAssets(context, imageName)
             ?: error("Could not export $imageName")
-        val processedFile = ImageProcessor().preprocessImageForOCR(sourceFile, context.cacheDir)
+        val processedImage = ImageProcessor().preprocessBitmapForOcr(sourceFile)
         val recognizer = com.google.mlkit.vision.text.TextRecognition.getClient(
             com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions.Builder().build()
         )
 
         try {
-            val image = com.google.mlkit.vision.common.InputImage.fromFilePath(
-                context,
-                android.net.Uri.fromFile(processedFile)
-            )
+            val image = processedImage?.let {
+                com.google.mlkit.vision.common.InputImage.fromBitmap(it.bitmap, 0)
+            } ?: com.google.mlkit.vision.common.InputImage.fromFilePath(
+                    context,
+                    android.net.Uri.fromFile(sourceFile)
+                )
             val lines = recognizer.process(image).await().text
                 .lines()
                 .map(String::trim)
@@ -329,7 +331,7 @@ object TestDataUtils {
             OcrSampleResult(imageName, sourceFile.absolutePath, lines)
         } finally {
             recognizer.close()
-            if (processedFile != sourceFile) processedFile.delete()
+            processedImage?.close()
         }
     }
 

@@ -8,10 +8,11 @@ import androidx.exifinterface.media.ExifInterface
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.runBlocking
+import kotlin.coroutines.CoroutineContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -49,10 +50,10 @@ class ImageProcessorExifTest {
     @Test
     fun preprocessingAppliesGrayscaleThenContrast() = runBlocking {
         val source = createTwoToneJpeg("two-tone.jpg")
-        val output = ImageProcessor().preprocessImageForOCR(source, source.parentFile!!)
+        val output = checkNotNull(ImageProcessor().preprocessBitmapForOcr(source))
 
         val sourceBitmap = BitmapFactory.decodeFile(source.absolutePath)
-        val outputBitmap = BitmapFactory.decodeFile(output.absolutePath)
+        val outputBitmap = output.bitmap
         try {
             val sourceLeft = sourceBitmap.getPixel(16, sourceBitmap.height / 2)
             val sourceRight = sourceBitmap.getPixel(sourceBitmap.width - 16, sourceBitmap.height / 2)
@@ -70,14 +71,13 @@ class ImageProcessorExifTest {
             )
         } finally {
             sourceBitmap.recycle()
-            outputBitmap.recycle()
-            output.delete()
+            output.close()
         }
     }
 
     @Test
-    fun preprocessingPreservesNinetyDegreeExifOrientation() = runBlocking {
-        val source = createJpeg("rotated.jpg")
+    fun preprocessingAppliesNinetyDegreeExifOrientation() = runBlocking {
+        val source = createSolidJpeg("rotated.jpg", width = 80, height = 40)
         ExifInterface(source).apply {
             setAttribute(
                 ExifInterface.TAG_ORIENTATION,
@@ -86,60 +86,67 @@ class ImageProcessorExifTest {
             saveAttributes()
         }
 
-        val output = ImageProcessor().preprocessImageForOCR(source, source.parentFile!!)
+        val output = checkNotNull(ImageProcessor().preprocessBitmapForOcr(source))
         try {
-            val actual = ExifInterface(output).getAttributeInt(
-                ExifInterface.TAG_ORIENTATION,
-                ExifInterface.ORIENTATION_UNDEFINED
-            )
-            assertEquals(ExifInterface.ORIENTATION_ROTATE_90, actual)
+            assertEquals(40, output.bitmap.width)
+            assertEquals(80, output.bitmap.height)
         } finally {
-            output.delete()
+            output.close()
         }
     }
 
     @Test
-    fun failedCompressionReturnsOriginalAndDeletesPartialOutput() = runBlocking {
-        val source = createJpeg("compression-failure.jpg")
-        val outputDirectory = source.parentFile!!
-        val filesBefore = preprocessedFiles(outputDirectory)
-        val processor = ImageProcessor(compressBitmap = { _, output ->
-            output.write(1)
-            false
-        })
+    fun preprocessingAppliesHorizontalExifReflection() = runBlocking {
+        val source = createTwoToneJpeg("reflected.jpg")
+        ExifInterface(source).apply {
+            setAttribute(
+                ExifInterface.TAG_ORIENTATION,
+                ExifInterface.ORIENTATION_FLIP_HORIZONTAL.toString()
+            )
+            saveAttributes()
+        }
 
-        val result = processor.preprocessImageForOCR(source, outputDirectory)
-
-        assertSame(source, result)
-        assertEquals(filesBefore, preprocessedFiles(outputDirectory))
+        val output = checkNotNull(ImageProcessor().preprocessBitmapForOcr(source))
+        try {
+            val left = Color.red(output.bitmap.getPixel(16, output.bitmap.height / 2))
+            val right = Color.red(
+                output.bitmap.getPixel(output.bitmap.width - 16, output.bitmap.height / 2)
+            )
+            assertTrue("Expected reflected bright half on the left", left > right)
+        } finally {
+            output.close()
+        }
     }
 
     @Test
-    fun cancellationDeletesPartialOutputAndIsRethrown() = runBlocking {
-        val source = createJpeg("compression-cancellation.jpg")
-        val outputDirectory = source.parentFile!!
-        val filesBefore = preprocessedFiles(outputDirectory)
-        val processor = ImageProcessor(compressBitmap = { _, output ->
-            output.write(1)
-            throw CancellationException("test cancellation")
-        })
+    fun failedDecodeReturnsNull() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val source = File(context.cacheDir, "invalid-image.jpg").apply {
+            writeText("not an image")
+        }
+
+        assertNull(ImageProcessor().preprocessBitmapForOcr(source))
+    }
+
+    @Test
+    fun cancellationIsRethrown() = runBlocking {
+        val source = createJpeg("preprocessing-cancellation.jpg")
+        val processor = ImageProcessor(computationDispatcher = CancellingDispatcher)
 
         try {
-            processor.preprocessImageForOCR(source, outputDirectory)
+            processor.preprocessBitmapForOcr(source)
             fail("Expected preprocessing cancellation to be rethrown")
         } catch (_: CancellationException) {
             // Expected.
         }
-
-        assertEquals(filesBefore, preprocessedFiles(outputDirectory))
     }
 
     @Test
     fun preprocessingBoundsLargeImageAndPreservesAspectRatio() = runBlocking {
         val source = createSolidJpeg("large.jpg", width = 3000, height = 2000)
-        val output = ImageProcessor().preprocessImageForOCR(source, source.parentFile!!)
+        val output = checkNotNull(ImageProcessor().preprocessBitmapForOcr(source))
 
-        val bounds = decodeBounds(output)
+        val bounds = output.bitmap.width to output.bitmap.height
         try {
             assertTrue(bounds.first <= MAX_TEST_LONG_EDGE)
             assertTrue(bounds.first.toLong() * bounds.second <= MAX_TEST_PIXEL_COUNT)
@@ -149,20 +156,43 @@ class ImageProcessorExifTest {
                 ASPECT_RATIO_TOLERANCE
             )
         } finally {
-            output.delete()
+            output.close()
         }
     }
 
     @Test
     fun preprocessingKeepsSmallImageDimensions() = runBlocking {
         val source = createSolidJpeg("small.jpg", width = 640, height = 480)
-        val output = ImageProcessor().preprocessImageForOCR(source, source.parentFile!!)
+        val output = checkNotNull(ImageProcessor().preprocessBitmapForOcr(source))
 
         try {
-            assertEquals(640 to 480, decodeBounds(output))
+            assertEquals(640 to 480, output.bitmap.width to output.bitmap.height)
         } finally {
-            output.delete()
+            output.close()
         }
+    }
+
+    @Test
+    fun closingEnhancedImageRecyclesBitmapAndIsIdempotent() = runBlocking {
+        val source = createJpeg("recycled.jpg")
+        val output = checkNotNull(ImageProcessor().preprocessBitmapForOcr(source))
+        val bitmap = output.bitmap
+
+        output.close()
+        output.close()
+
+        assertTrue(bitmap.isRecycled)
+    }
+
+    @Test
+    fun preprocessingDoesNotCreateTemporaryJpeg() = runBlocking {
+        val source = createJpeg("in-memory.jpg")
+        val directory = source.parentFile!!
+        val filesBefore = preprocessedFiles(directory)
+
+        ImageProcessor().preprocessBitmapForOcr(source)?.use { }
+
+        assertEquals(filesBefore, preprocessedFiles(directory))
     }
 
     private fun createJpeg(name: String): File {
@@ -219,14 +249,6 @@ class ImageProcessorExifTest {
         return file
     }
 
-    private fun decodeBounds(file: File): Pair<Int, Int> {
-        val options = BitmapFactory.Options().apply {
-            inJustDecodeBounds = true
-        }
-        BitmapFactory.decodeFile(file.absolutePath, options)
-        return options.outWidth to options.outHeight
-    }
-
     private fun assertGrayscale(color: Int) {
         assertTrue(kotlin.math.abs(Color.red(color) - Color.green(color)) <= COLOR_TOLERANCE)
         assertTrue(kotlin.math.abs(Color.green(color) - Color.blue(color)) <= COLOR_TOLERANCE)
@@ -249,5 +271,11 @@ class ImageProcessorExifTest {
         const val ASPECT_RATIO_TOLERANCE = 0.001f
         const val MAX_TEST_LONG_EDGE = 2560
         const val MAX_TEST_PIXEL_COUNT = 4_000_000L
+    }
+
+    private object CancellingDispatcher : CoroutineDispatcher() {
+        override fun dispatch(context: CoroutineContext, block: Runnable) {
+            throw CancellationException("test cancellation")
+        }
     }
 }

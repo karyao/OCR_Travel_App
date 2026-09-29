@@ -85,7 +85,6 @@ internal fun productionCaptureDependencies(
             val imageProcessor = ImageProcessor()
             CaptureWorkflowDependencies(
                 filesRoot = applicationContext.filesDir,
-                cacheDirectory = applicationContext.cacheDir,
                 location = CaptureLocationSource {
                     when (val result = DeviceLocationProvider.getCurrentLocation(applicationContext)) {
                         is DeviceLocationProvider.Result.Success -> CaptureLocationResult.Success(
@@ -192,8 +191,8 @@ private class CameraManagerCaptureCamera(
 private class OcrPipelineCaptureTextRecognizer(
     private val pipeline: OcrPipeline
 ) : CaptureTextRecognizer {
-    override suspend fun recognize(originalFile: File, cacheDirectory: File): OcrOutcome =
-        pipeline.recognize(originalFile, cacheDirectory)
+    override suspend fun recognize(originalFile: File): OcrOutcome =
+        pipeline.recognize(originalFile)
 
     override fun close() = pipeline.close()
 }

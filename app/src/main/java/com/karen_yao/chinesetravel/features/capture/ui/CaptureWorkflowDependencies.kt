@@ -10,7 +10,6 @@ import kotlinx.coroutines.Dispatchers
 /** Application-scoped services only. No Android UI objects cross this boundary. */
 internal data class CaptureWorkflowDependencies(
     val filesRoot: File,
-    val cacheDirectory: File,
     val location: CaptureLocationSource,
     val recognizer: CaptureTextRecognizer,
     val galleryImporter: CaptureGallerySource,
@@ -42,7 +41,7 @@ internal fun interface CaptureGallerySource {
 }
 
 internal interface CaptureTextRecognizer : Closeable {
-    suspend fun recognize(originalFile: File, cacheDirectory: File): OcrOutcome
+    suspend fun recognize(originalFile: File): OcrOutcome
 }
 
 internal fun interface CaptureSaver {

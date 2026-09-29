@@ -401,10 +401,8 @@ class CaptureFragmentBehaviorTest {
         permissions = permissions,
         camera = camera,
         createWorkflow = {
-            val context = ApplicationProvider.getApplicationContext<Context>()
             CaptureWorkflowDependencies(
                 filesRoot = testFiles,
-                cacheDirectory = context.cacheDir,
                 location = CaptureLocationSource { locationResult },
                 recognizer = recognizer,
                 galleryImporter = CaptureGallerySource { error("No import expected") },
@@ -548,7 +546,7 @@ private class FakeCaptureTextRecognizer(
     private val started: CountDownLatch? = null,
     private val cancelled: CountDownLatch? = null
 ) : CaptureTextRecognizer {
-    override suspend fun recognize(originalFile: File, cacheDirectory: File): OcrOutcome {
+    override suspend fun recognize(originalFile: File): OcrOutcome {
         started?.countDown()
         try {
             gate?.await()

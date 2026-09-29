@@ -44,7 +44,7 @@ The app supports Android 10 and newer. Camera permission is needed to take photo
 
 The project contains unit tests for database, ViewModel, image-sampling, and OCR decision logic. It also contains Android instrumentation tests for the database, UI, EXIF metadata, and image preprocessing.
 
-There is a device-side OCR comparison test that measures the original and preprocessed versions of sample images using confidence, character error rate, and processing time. This is useful for checking whether an image-processing change actually helps instead of relying only on ML Kit confidence.
+There is a device-side OCR benchmark that runs five alternating iterations of the original-file and enhanced in-memory bitmap paths. It records preprocessing, recognition, and total time alongside confidence and character error rate in `ocr_accuracy_comparison.tsv` and under the `OcrBenchmark` test-log tag. Results are observational rather than a CI performance threshold because timings vary by device and temperature.
 
 To run the local unit tests and lint checks:
 

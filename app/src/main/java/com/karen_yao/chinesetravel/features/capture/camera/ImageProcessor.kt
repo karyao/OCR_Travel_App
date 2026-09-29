@@ -11,16 +11,20 @@ import androidx.exifinterface.media.ExifInterface
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import java.io.Closeable
 import java.io.File
-import java.io.FileOutputStream
-import java.io.OutputStream
 
 private const val MAX_OCR_LONG_EDGE = 2560
 private const val MAX_OCR_PIXEL_COUNT = 4_000_000L
+
+internal class EnhancedOcrImage(val bitmap: Bitmap) : Closeable {
+    override fun close() {
+        if (!bitmap.isRecycled) bitmap.recycle()
+    }
+}
 
 internal fun calculateOcrInSampleSize(width: Int, height: Int): Int {
     if (width <= 0 || height <= 0) return 1
@@ -46,10 +50,7 @@ private fun sampledImageExceedsLimits(width: Int, height: Int, sampleSize: Int):
  */
 class ImageProcessor(
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
-    private val computationDispatcher: CoroutineDispatcher = Dispatchers.Default,
-    private val compressBitmap: (Bitmap, OutputStream) -> Boolean = { bitmap, output ->
-        bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, output)
-    }
+    private val computationDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) {
     
     /**
@@ -83,16 +84,15 @@ class ImageProcessor(
      * Preprocess image for better OCR accuracy.
      * Applies contrast enhancement and grayscale conversion.
      * 
+     * The returned image owns its bitmap and must be closed by the caller.
+     *
      * @param file The original image file
-     * @return Preprocessed image file optimized for OCR
+     * @return An upright, preprocessed bitmap optimized for OCR, or null when decoding fails
      */
-    suspend fun preprocessImageForOCR(
-        file: File,
-        outputDirectory: File = file.parentFile ?: File(".")
-    ): File {
+    internal suspend fun preprocessBitmapForOcr(file: File): EnhancedOcrImage? {
         var originalBitmap: Bitmap? = null
-        var preprocessedBitmap: Bitmap? = null
-        var preprocessedFile: File? = null
+        var enhancedBitmap: Bitmap? = null
+        var orientedBitmap: Bitmap? = null
 
         return try {
             currentCoroutineContext().ensureActive()
@@ -102,44 +102,35 @@ class ImageProcessor(
 
             originalBitmap = withContext(ioDispatcher) {
                 decodeBoundedBitmap(file)
-            } ?: return file
+            } ?: return null
 
             currentCoroutineContext().ensureActive()
-            preprocessedBitmap = withContext(computationDispatcher) {
+            enhancedBitmap = withContext(computationDispatcher) {
                 enhanceImageForOCR(checkNotNull(originalBitmap))
             }
+            originalBitmap.recycle()
+            originalBitmap = null
 
             currentCoroutineContext().ensureActive()
-            preprocessedFile = withContext(ioDispatcher) {
-                check(outputDirectory.exists() || outputDirectory.mkdirs()) {
-                    "Could not create the OCR output directory"
-                }
-                File.createTempFile(PREPROCESSED_FILE_PREFIX, JPEG_SUFFIX, outputDirectory)
+            orientedBitmap = withContext(computationDispatcher) {
+                rotateBitmap(checkNotNull(enhancedBitmap), orientation)
             }
-
-            withContext(ioDispatcher) {
-                FileOutputStream(checkNotNull(preprocessedFile)).use { output ->
-                    check(compressBitmap(checkNotNull(preprocessedBitmap), output)) {
-                        "Could not encode the preprocessed image"
-                    }
-                }
-                copyOrientation(checkNotNull(preprocessedFile), orientation)
+            if (orientedBitmap !== enhancedBitmap) {
+                enhancedBitmap.recycle()
             }
+            enhancedBitmap = null
 
             currentCoroutineContext().ensureActive()
-            checkNotNull(preprocessedFile)
+            EnhancedOcrImage(checkNotNull(orientedBitmap)).also {
+                orientedBitmap = null
+            }
         } catch (exception: CancellationException) {
-            withContext(NonCancellable + ioDispatcher) {
-                preprocessedFile?.delete()
-            }
             throw exception
-        } catch (exception: Exception) {
-            withContext(NonCancellable + ioDispatcher) {
-                preprocessedFile?.delete()
-            }
-            file
+        } catch (_: Exception) {
+            null
         } finally {
-            preprocessedBitmap?.recycle()
+            orientedBitmap?.takeIf { it !== enhancedBitmap }?.recycle()
+            enhancedBitmap?.recycle()
             originalBitmap?.recycle()
         }
     }
@@ -198,15 +189,6 @@ class ImageProcessor(
             )
         }.getOrDefault(ExifInterface.ORIENTATION_UNDEFINED)
 
-    private fun copyOrientation(file: File, orientation: Int) {
-        if (orientation == ExifInterface.ORIENTATION_UNDEFINED) return
-
-        ExifInterface(file).apply {
-            setAttribute(ExifInterface.TAG_ORIENTATION, orientation.toString())
-            saveAttributes()
-        }
-    }
-
     private fun decodeBoundedBitmap(file: File): Bitmap? {
         val bounds = readImageBounds(file) ?: return null
         val options = BitmapFactory.Options().apply {
@@ -257,12 +239,6 @@ class ImageProcessor(
 
     private data class ImageBounds(val width: Int, val height: Int)
 
-    private companion object {
-        const val JPEG_QUALITY = 90
-        const val PREPROCESSED_FILE_PREFIX = "preprocessed_"
-        const val JPEG_SUFFIX = ".jpg"
-    }
-    
     /**
      * Load and display an image with proper rotation handling.
      * Respects EXIF orientation data to display images correctly.
@@ -388,11 +364,19 @@ class ImageProcessor(
             ExifInterface.ORIENTATION_FLIP_VERTICAL -> flipImage(bitmap, horizontal = false, vertical = true)
             ExifInterface.ORIENTATION_TRANSPOSE -> {
                 val rotated = rotateImage(bitmap, 90f)
-                flipImage(rotated, horizontal = true, vertical = false)
+                try {
+                    flipImage(rotated, horizontal = true, vertical = false)
+                } finally {
+                    rotated.recycle()
+                }
             }
             ExifInterface.ORIENTATION_TRANSVERSE -> {
                 val rotated = rotateImage(bitmap, 270f)
-                flipImage(rotated, horizontal = true, vertical = false)
+                try {
+                    flipImage(rotated, horizontal = true, vertical = false)
+                } finally {
+                    rotated.recycle()
+                }
             }
             else -> bitmap // No rotation needed
         }

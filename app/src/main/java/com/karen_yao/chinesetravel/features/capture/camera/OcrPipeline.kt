@@ -1,15 +1,14 @@
 package com.karen_yao.chinesetravel.features.capture.camera
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.net.Uri
-import android.util.Log
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.TextRecognizer
 import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.io.Closeable
@@ -81,7 +80,7 @@ internal class OcrPipeline(
     )
 ) : Closeable {
 
-    suspend fun recognize(originalFile: File, cacheDirectory: File): OcrOutcome {
+    suspend fun recognize(originalFile: File): OcrOutcome {
         val originalPass = recognizeFile(originalFile)
         if (!shouldTryEnhancedInput(originalPass)) {
             return OcrOutcome(
@@ -91,8 +90,8 @@ internal class OcrPipeline(
             )
         }
 
-        val enhancedFile = imageProcessor.preprocessImageForOCR(originalFile, cacheDirectory)
-        if (enhancedFile.canonicalPath == originalFile.canonicalPath) {
+        val enhancedImage = imageProcessor.preprocessBitmapForOcr(originalFile)
+        if (enhancedImage == null) {
             return OcrOutcome(
                 selectedPass = originalPass,
                 originalConfidence = originalPass.confidence,
@@ -100,20 +99,14 @@ internal class OcrPipeline(
             )
         }
 
-        return try {
-            val enhancedPass = recognizeFile(enhancedFile)
+        return enhancedImage.use { image ->
+            val enhancedPass = recognizeBitmap(image.bitmap)
             val selectedPass = chooseBetterOcrPass(originalPass, enhancedPass)
             OcrOutcome(
                 selectedPass = selectedPass,
                 originalConfidence = originalPass.confidence,
                 usedEnhancedInput = selectedPass === enhancedPass
             )
-        } finally {
-            withContext(NonCancellable + Dispatchers.IO) {
-                if (!enhancedFile.delete()) {
-                    Log.w(TAG, "Could not delete temporary OCR image: ${enhancedFile.name}")
-                }
-            }
         }
     }
 
@@ -122,6 +115,11 @@ internal class OcrPipeline(
             InputImage.fromFilePath(applicationContext, Uri.fromFile(file))
         }
         val result = recognizer.process(image).await()
+        return OcrPass(result.toOcrLines())
+    }
+
+    private suspend fun recognizeBitmap(bitmap: Bitmap): OcrPass {
+        val result = recognizer.process(InputImage.fromBitmap(bitmap, 0)).await()
         return OcrPass(result.toOcrLines())
     }
 
@@ -137,8 +135,4 @@ internal class OcrPipeline(
                 OcrLine(text = it, confidence = line.confidence)
             }
         }
-
-    private companion object {
-        const val TAG = "OcrPipeline"
-    }
 }

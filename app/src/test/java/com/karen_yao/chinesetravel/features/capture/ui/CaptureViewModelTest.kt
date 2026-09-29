@@ -45,10 +45,9 @@ class CaptureViewModelTest {
         root = temporary.newFolder("managed")
         model = CaptureViewModel(CaptureWorkflowDependencies(
             filesRoot = root,
-            cacheDirectory = temporary.newFolder("cache"),
             location = CaptureLocationSource { location() },
             recognizer = object : CaptureTextRecognizer {
-                override suspend fun recognize(originalFile: File, cacheDirectory: File): OcrOutcome {
+                override suspend fun recognize(originalFile: File): OcrOutcome {
                     recognitionCalls++
                     return recognize()
                 }

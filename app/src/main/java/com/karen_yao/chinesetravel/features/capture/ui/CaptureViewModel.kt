@@ -254,7 +254,7 @@ internal class CaptureViewModel(private val services: CaptureWorkflowDependencie
     private suspend fun recognizeInJob(file: File, source: String, id: Long) {
         state(CaptureState.RecognizingText)
         emit(CaptureEffect.Message("Running OCR ($source)..."))
-        val outcome = services.recognizer.recognize(file, services.cacheDirectory)
+        val outcome = services.recognizer.recognize(file)
         kotlin.coroutines.coroutineContext.ensureActive()
         if (!matches(id, CaptureState.RecognizingText)) return
         when (val decision = classifyRecognizedText(outcome.selectedPass.lines.map { it.text })) {

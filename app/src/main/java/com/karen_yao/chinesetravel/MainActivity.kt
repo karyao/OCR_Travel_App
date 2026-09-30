@@ -5,6 +5,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import com.karen_yao.chinesetravel.core.database.AppDatabase
 import com.karen_yao.chinesetravel.core.repository.TravelRepository
+import com.karen_yao.chinesetravel.core.repository.TravelRepositoryOwner
 import com.karen_yao.chinesetravel.features.capture.ui.CaptureDependencies
 import com.karen_yao.chinesetravel.features.capture.ui.productionCaptureDependencies
 import com.karen_yao.chinesetravel.features.welcome.ui.WelcomeFragment
@@ -13,9 +14,9 @@ import com.karen_yao.chinesetravel.features.welcome.ui.WelcomeFragment
  * MainActivity hosts a single container for fragments.
  * It creates one TravelRepository (Room DB) and exposes it to fragments.
  */
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), TravelRepositoryOwner {
     
-    lateinit var repository: TravelRepository
+    override lateinit var repository: TravelRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,4 +42,4 @@ class MainActivity : AppCompatActivity() {
  * @deprecated Use Fragment.repo() extension instead
  */
 @Deprecated("Use Fragment.repo() extension instead")
-fun Fragment.repo(): TravelRepository = (requireActivity() as MainActivity).repository
+fun Fragment.repo(): TravelRepository = (requireActivity() as TravelRepositoryOwner).repository

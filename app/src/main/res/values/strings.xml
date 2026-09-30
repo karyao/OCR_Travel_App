@@ -40,4 +40,10 @@
     <string name="home_location_symbol" translatable="false">📍</string>
     <string name="home_open_google_maps">Open in Google Maps</string>
     <string name="home_map_open_error">No app is available to open this map</string>
+    <string name="text_selection_title">📝 Select Text</string>
+    <string name="text_selection_confirm">Confirm Selection</string>
+    <string name="text_selection_saving">Saving…</string>
+    <string name="text_selection_saved">Saved. Total rows: %1$d</string>
+    <string name="text_selection_save_unknown">Saving did not finish normally. Your photo has been retained. Check Home before trying again.</string>
+    <string name="text_selection_invalid_input">The image or text options are missing. Go back and choose another photo.</string>
 </resources>

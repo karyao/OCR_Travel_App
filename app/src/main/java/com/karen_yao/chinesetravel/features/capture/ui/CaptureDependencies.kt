@@ -3,7 +3,6 @@ package com.karen_yao.chinesetravel.features.capture.ui
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
-import android.location.Geocoder
 import android.location.Location
 import android.net.Uri
 import androidx.camera.core.ImageCapture
@@ -12,17 +11,13 @@ import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import com.karen_yao.chinesetravel.core.repository.TravelRepository
+import com.karen_yao.chinesetravel.core.workflow.productionCapturedPlaceSaver
 import com.karen_yao.chinesetravel.features.capture.camera.CameraManager
 import com.karen_yao.chinesetravel.features.capture.camera.ImageProcessor
 import com.karen_yao.chinesetravel.features.capture.camera.OcrOutcome
 import com.karen_yao.chinesetravel.features.capture.camera.OcrPipeline
 import com.karen_yao.chinesetravel.shared.location.DeviceLocationProvider
-import com.karen_yao.chinesetravel.shared.utils.PinyinUtils
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import java.io.File
-import java.util.Locale
 import java.util.concurrent.Executor
 
 internal interface CaptureDependenciesOwner {
@@ -100,7 +95,7 @@ internal fun productionCaptureDependencies(
                         applicationContext.contentResolver.openInputStream(Uri.parse(uri))
                     }
                 },
-                saver = AndroidCaptureSaver(applicationContext, imageProcessor, CapturePersistence(repository))
+                saver = productionCapturedPlaceSaver(applicationContext, repository, imageProcessor)
             )
         }
     )
@@ -195,50 +190,6 @@ private class OcrPipelineCaptureTextRecognizer(
         pipeline.recognize(originalFile)
 
     override fun close() = pipeline.close()
-}
-
-private class AndroidCaptureSaver(
-    private val context: Context,
-    private val imageProcessor: ImageProcessor,
-    private val persistence: CapturePersistence
-) : CaptureSaver {
-    override suspend fun save(
-        chineseText: String,
-        file: File
-    ): Int {
-        val pinyin = if (chineseText.isNotBlank()) PinyinUtils.toPinyin(chineseText) else ""
-        val location = withContext(Dispatchers.IO) {
-            imageProcessor.extractLocationFromFile(file)
-        }
-        val address = location?.let { (latitude, longitude) ->
-            reverseGeocode(context.applicationContext, latitude, longitude)
-        }
-        return persistence.saveAndCount(
-            chineseText = chineseText,
-            pinyinText = pinyin,
-            latitude = location?.first,
-            longitude = location?.second,
-            address = address,
-            imagePath = file.absolutePath
-        )
-    }
-
-    private suspend fun reverseGeocode(
-        context: Context,
-        latitude: Double,
-        longitude: Double
-    ): String? = withContext(Dispatchers.IO) {
-        try {
-            Geocoder(context, Locale.getDefault())
-                .getFromLocation(latitude, longitude, 1)
-                ?.firstOrNull()
-                ?.getAddressLine(0)
-        } catch (exception: CancellationException) {
-            throw exception
-        } catch (_: Exception) {
-            null
-        }
-    }
 }
 
 private fun Location.toCaptureLocation() = CaptureLocation(

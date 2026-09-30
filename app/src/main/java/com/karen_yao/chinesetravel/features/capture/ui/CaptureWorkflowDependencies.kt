@@ -44,6 +44,4 @@ internal interface CaptureTextRecognizer : Closeable {
     suspend fun recognize(originalFile: File): OcrOutcome
 }
 
-internal fun interface CaptureSaver {
-    suspend fun save(chineseText: String, file: File): Int
-}
+internal typealias CaptureSaver = com.karen_yao.chinesetravel.core.workflow.CapturedPlaceSaver

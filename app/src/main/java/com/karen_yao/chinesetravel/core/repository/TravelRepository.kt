@@ -5,6 +5,11 @@ import com.karen_yao.chinesetravel.core.database.entities.PlaceSnap
 import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
 
+/** Hosts expose their repository without requiring a concrete Activity type. */
+interface TravelRepositoryOwner {
+    val repository: TravelRepository
+}
+
 /**
  * The collection operations required by the Home feature.
  *

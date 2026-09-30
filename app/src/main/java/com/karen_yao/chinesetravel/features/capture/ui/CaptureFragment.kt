@@ -25,6 +25,8 @@ import kotlinx.coroutines.launch
 
 /** Android integration only; CaptureViewModel owns the workflow and image lifetime. */
 class CaptureFragment : Fragment(R.layout.fragment_capture) {
+    internal companion object { const val BACK_STACK_NAME = "capture" }
+
     private val dependencies by lazy {
         when (val host = requireActivity()) {
             is MainActivity -> host.createCaptureDependencies()

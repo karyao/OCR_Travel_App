@@ -173,7 +173,9 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
     private fun navigateTo(destination: Fragment, addToBackStack: Boolean) {
         parentFragmentManager.beginTransaction().apply {
             replace(R.id.container, destination)
-            if (addToBackStack) addToBackStack(null)
+            if (addToBackStack) addToBackStack(
+                if (destination is CaptureFragment) CaptureFragment.BACK_STACK_NAME else null
+            )
         }.commit()
     }
 

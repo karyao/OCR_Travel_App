@@ -1,4 +1,4 @@
-package com.karen_yao.chinesetravel.features.capture.ui
+package com.karen_yao.chinesetravel.core.workflow
 
 import com.karen_yao.chinesetravel.core.database.entities.PlaceSnap
 import com.karen_yao.chinesetravel.core.repository.TravelRepository

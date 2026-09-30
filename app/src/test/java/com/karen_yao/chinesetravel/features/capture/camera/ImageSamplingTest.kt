@@ -11,28 +11,45 @@ class ImageSamplingTest {
     }
 
     @Test
-    fun largeLandscapeImageIsSampledWithinBothLimits() {
-        assertEquals(2, calculateOcrInSampleSize(4032, 3024))
+    fun largeLandscapeImageRetainsTargetDetailDuringDecode() {
+        assertEquals(1, calculateOcrInSampleSize(4032, 3024))
     }
 
     @Test
-    fun largePortraitImageIsSampledWithinBothLimits() {
-        assertEquals(2, calculateOcrInSampleSize(3024, 4032))
+    fun largePortraitImageRetainsTargetDetailDuringDecode() {
+        assertEquals(1, calculateOcrInSampleSize(3024, 4032))
     }
 
     @Test
-    fun squareImageUsesPixelLimit() {
-        assertEquals(2, calculateOcrInSampleSize(2560, 2560))
+    fun squareImageRetainsTargetDetailDuringDecode() {
+        assertEquals(1, calculateOcrInSampleSize(2560, 2560))
     }
 
     @Test
-    fun panoramicImageUsesLongEdgeLimit() {
-        assertEquals(4, calculateOcrInSampleSize(8000, 1000))
+    fun panoramicImageRetainsTargetDetailDuringDecode() {
+        assertEquals(2, calculateOcrInSampleSize(8000, 1000))
     }
 
     @Test
     fun veryLargeImageUsesPowerOfTwoSampling() {
-        assertEquals(8, calculateOcrInSampleSize(16000, 12000))
+        assertEquals(4, calculateOcrInSampleSize(16000, 12000))
+    }
+
+    @Test
+    fun targetPreservesMoreDetailThanHalfSizeDecode() {
+        assertEquals(OcrImageSize(2309, 1732), calculateOcrImageSize(4032, 3024))
+        assertEquals(OcrImageSize(1732, 2309), calculateOcrImageSize(3024, 4032))
+    }
+
+    @Test
+    fun targetHonorsPixelAndLongEdgeBudgets() {
+        assertEquals(OcrImageSize(2000, 2000), calculateOcrImageSize(2560, 2560))
+        assertEquals(OcrImageSize(2560, 320), calculateOcrImageSize(8000, 1000))
+    }
+
+    @Test
+    fun smallImagesAreNotUpscaled() {
+        assertEquals(OcrImageSize(640, 480), calculateOcrImageSize(640, 480))
     }
 
     @Test

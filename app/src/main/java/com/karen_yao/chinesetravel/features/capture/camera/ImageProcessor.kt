@@ -26,22 +26,33 @@ internal class EnhancedOcrImage(val bitmap: Bitmap) : Closeable {
     }
 }
 
-internal fun calculateOcrInSampleSize(width: Int, height: Int): Int {
-    if (width <= 0 || height <= 0) return 1
+internal data class OcrImageSize(val width: Int, val height: Int)
 
-    var sampleSize = 1
-    while (sampledImageExceedsLimits(width, height, sampleSize)) {
-        if (sampleSize > Int.MAX_VALUE / 2) return sampleSize
-        sampleSize *= 2
-    }
-    return sampleSize
+/** Preserve as much detail as the processing budget permits; never upscale. */
+internal fun calculateOcrImageSize(width: Int, height: Int): OcrImageSize {
+    if (width <= 0 || height <= 0) return OcrImageSize(width, height)
+    val scale = minOf(
+        1.0,
+        MAX_OCR_LONG_EDGE.toDouble() / maxOf(width, height),
+        kotlin.math.sqrt(MAX_OCR_PIXEL_COUNT.toDouble() / (width.toDouble() * height))
+    )
+    return OcrImageSize(
+        (width * scale).toInt().coerceAtLeast(1),
+        (height * scale).toInt().coerceAtLeast(1)
+    )
 }
 
-private fun sampledImageExceedsLimits(width: Int, height: Int, sampleSize: Int): Boolean {
-    val sampledWidth = (width.toLong() + sampleSize - 1L) / sampleSize
-    val sampledHeight = (height.toLong() + sampleSize - 1L) / sampleSize
-    return maxOf(sampledWidth, sampledHeight) > MAX_OCR_LONG_EDGE ||
-        sampledWidth * sampledHeight > MAX_OCR_PIXEL_COUNT
+/** Decode at a power of two that still retains every pixel needed by the target. */
+internal fun calculateOcrInSampleSize(width: Int, height: Int): Int {
+    if (width <= 0 || height <= 0) return 1
+    val target = calculateOcrImageSize(width, height)
+    var sampleSize = 1
+    while (sampleSize <= Int.MAX_VALUE / 2) {
+        val next = sampleSize * 2
+        if (width / next < target.width || height / next < target.height) break
+        sampleSize = next
+    }
+    return sampleSize
 }
 
 /**
@@ -195,7 +206,16 @@ class ImageProcessor(
             inSampleSize = calculateOcrInSampleSize(bounds.width, bounds.height)
             inPreferredConfig = Bitmap.Config.ARGB_8888
         }
-        return BitmapFactory.decodeFile(file.absolutePath, options)
+        val decoded = BitmapFactory.decodeFile(file.absolutePath, options) ?: return null
+        val target = calculateOcrImageSize(bounds.width, bounds.height)
+        return try {
+            val resized = Bitmap.createScaledBitmap(decoded, target.width, target.height, true)
+            if (resized !== decoded) decoded.recycle()
+            resized
+        } catch (exception: Exception) {
+            decoded.recycle()
+            throw exception
+        }
     }
 
     private fun readImageBounds(file: File): ImageBounds? {

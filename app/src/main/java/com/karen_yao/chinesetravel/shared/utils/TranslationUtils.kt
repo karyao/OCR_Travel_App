@@ -22,7 +22,13 @@ object TranslationUtils {
      * @param text The Chinese text to translate
      * @return Translated text or fallback if translation fails
      */
-    suspend fun translateChineseToEnglish(text: String): String {
+    suspend fun translateChineseToEnglish(text: String): String =
+        translateChineseToEnglish(text, Translation::getClient)
+
+    internal suspend fun translateChineseToEnglish(
+        text: String,
+        clientFactory: (TranslatorOptions) -> Translator
+    ): String {
         if (text.isBlank()) {
             return "No text"
         }
@@ -33,7 +39,7 @@ object TranslationUtils {
             .build()
         var translator: Translator? = null
         return try {
-            val client = Translation.getClient(options)
+            val client = clientFactory(options)
             translator = client
             client.downloadModelIfNeeded().await()
             client.translate(text).await()

@@ -5,8 +5,8 @@ import com.google.mlkit.nl.translate.TranslateLanguage
 import com.google.mlkit.nl.translate.Translation
 import com.google.mlkit.nl.translate.Translator
 import com.google.mlkit.nl.translate.TranslatorOptions
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlin.coroutines.resume
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.tasks.await
 
 /**
  * Utility functions for text translation using ML Kit Translate.
@@ -27,75 +27,26 @@ object TranslationUtils {
             return "No text"
         }
         
+        val options = TranslatorOptions.Builder()
+            .setSourceLanguage(TranslateLanguage.CHINESE)
+            .setTargetLanguage(TranslateLanguage.ENGLISH)
+            .build()
+        var translator: Translator? = null
         return try {
-            Log.d(TAG, "🔄 Starting ML Kit translation for: $text")
-            
-            // Create translator options for Chinese to English
-            val options = TranslatorOptions.Builder()
-                .setSourceLanguage(TranslateLanguage.CHINESE)
-                .setTargetLanguage(TranslateLanguage.ENGLISH)
-                .build()
-            
-            val translator = Translation.getClient(options)
-            
-            // Check if model is downloaded
-            val modelDownloaded = checkModelDownloaded(translator)
-            Log.d(TAG, "📱 Model downloaded: $modelDownloaded")
-            
-            if (!modelDownloaded) {
-                Log.w(TAG, "⚠️ Translation model not downloaded, using fallback")
-                translator.close()
-                return getFallbackTranslation(text)
-            }
-            
-            // Perform translation
-            val result = translateText(translator, text)
-            translator.close()
-            
-            Log.d(TAG, "✅ ML Kit translation result: $result")
-            result
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ ML Kit translation failed: ${e.message}")
-            Log.d(TAG, "🔄 Using fallback translation for: $text")
-            val fallback = getFallbackTranslation(text)
-            Log.d(TAG, "📝 Fallback result: $fallback")
-            fallback
+            val client = Translation.getClient(options)
+            translator = client
+            client.downloadModelIfNeeded().await()
+            client.translate(text).await()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            Log.w(TAG, "Translation unavailable; using fallback", error)
+            getFallbackTranslation(text)
+        } finally {
+            translator?.close()
         }
     }
-    
-    /**
-     * Check if the translation model is downloaded.
-     */
-    private suspend fun checkModelDownloaded(translator: Translator): Boolean {
-        return suspendCancellableCoroutine { continuation ->
-            translator.downloadModelIfNeeded()
-                .addOnSuccessListener {
-                    Log.d(TAG, "✅ Model is ready")
-                    continuation.resume(true)
-                }
-                .addOnFailureListener { exception ->
-                    Log.w(TAG, "⚠️ Model not ready: ${exception.message}")
-                    continuation.resume(false)
-                }
-        }
-    }
-    
-    /**
-     * Suspend function to handle ML Kit translation.
-     */
-    private suspend fun translateText(translator: Translator, text: String): String {
-        return suspendCancellableCoroutine { continuation ->
-            translator.translate(text)
-                .addOnSuccessListener { translatedText ->
-                    continuation.resume(translatedText)
-                }
-                .addOnFailureListener { exception ->
-                    Log.e(TAG, "Translation failed: ${exception.message}")
-                    continuation.resume(getFallbackTranslation(text))
-                }
-        }
-    }
-    
+
     /**
      * Fallback translation for common travel terms when ML Kit fails.
      */

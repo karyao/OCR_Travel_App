@@ -1,41 +1,6 @@
 package com.karen_yao.chinesetravel.features.capture.ui
 
 import com.karen_yao.chinesetravel.shared.location.DeviceLocationProvider
-import java.io.File
-
-internal class CaptureOperationGuard {
-    private var nextCaptureId = 0L
-    private var activeCaptureId: Long? = null
-    private var galleryPending = false
-
-    fun beginCapture(processingActive: Boolean = false): Long? {
-        if (isBusy(processingActive)) return null
-        return (++nextCaptureId).also { activeCaptureId = it }
-    }
-
-    fun isActiveCapture(captureId: Long): Boolean = activeCaptureId == captureId
-
-    fun finishCapture(captureId: Long) {
-        if (activeCaptureId == captureId) activeCaptureId = null
-    }
-
-    fun cancelCapture() {
-        activeCaptureId = null
-    }
-
-    fun beginGallery(processingActive: Boolean = false): Boolean {
-        if (isBusy(processingActive)) return false
-        galleryPending = true
-        return true
-    }
-
-    fun finishGallery() {
-        galleryPending = false
-    }
-
-    fun isBusy(processingActive: Boolean = false): Boolean =
-        activeCaptureId != null || galleryPending || processingActive
-}
 
 internal sealed interface CaptureLocationDecision {
     data object AcquireLocation : CaptureLocationDecision
@@ -81,26 +46,4 @@ internal fun classifyRecognizedText(lines: List<String>): RecognizedTextDecision
         lines.first().length >= 2 -> RecognizedTextDecision.SaveText(lines.first())
         else -> RecognizedTextDecision.TextTooShort
     }
-}
-
-internal class ManagedImageLease(
-    val file: File,
-    private val managedFilesRoot: File
-) {
-    private var persistenceStarted = false
-
-    fun markPersistenceStarted() {
-        persistenceStarted = true
-    }
-
-    fun discardIfSafe(): Boolean {
-        if (persistenceStarted || !isManagedImage(file, managedFilesRoot)) return false
-        return !file.exists() || file.delete()
-    }
-}
-
-internal fun isManagedImage(file: File, managedFilesRoot: File): Boolean {
-    val canonicalRoot = runCatching { managedFilesRoot.canonicalFile }.getOrNull() ?: return false
-    val candidate = runCatching { file.canonicalFile }.getOrNull() ?: return false
-    return candidate.path.startsWith(canonicalRoot.path + File.separator)
 }

@@ -17,7 +17,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import com.karen_yao.chinesetravel.MainActivity
 import com.karen_yao.chinesetravel.R
 import com.karen_yao.chinesetravel.features.home.ui.HomeFragment
 import com.karen_yao.chinesetravel.features.textselection.ui.TextSelectionFragment
@@ -28,11 +27,9 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
     internal companion object { const val BACK_STACK_NAME = "capture" }
 
     private val dependencies by lazy {
-        when (val host = requireActivity()) {
-            is MainActivity -> host.createCaptureDependencies()
-            is CaptureDependenciesOwner -> host.createCaptureDependencies()
-            else -> error("CaptureFragment host must provide capture dependencies")
-        }
+        val host = requireActivity() as? CaptureDependenciesOwner
+            ?: error("CaptureFragment host must provide capture dependencies")
+        host.createCaptureDependencies()
     }
     private val viewModel by lazy {
         ViewModelProvider(this, CaptureViewModelFactory(dependencies.createWorkflow))[CaptureViewModel::class.java]

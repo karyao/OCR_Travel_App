@@ -23,6 +23,29 @@ Saved photos, recognized text, translations, and locations are stored locally wi
 
 Location is optional. When permission and a recent location are available, the app stores the coordinates with the photo and shows saved locations on an OpenStreetMap map.
 
+## Architecture
+
+```mermaid
+flowchart TD
+    App["Application / AppContainer<br/>Creates shared dependencies"]
+    UI["Activity + Fragments<br/>UI, permissions and navigation"]
+    VM["ViewModels<br/>Screen state and decisions"]
+    Save["Saving workflow<br/>Translation, pinyin and location"]
+    Repo["TravelRepository"]
+    DB["Room database<br/>Saved places and photo paths"]
+
+    App -.-> VM
+    App -.-> Save
+    App -.-> Repo
+    UI --> VM
+    VM -->|Home / Map| Repo
+    VM -->|Capture / Select Text| Save
+    Save --> Repo
+    Repo --> DB
+```
+
+Details: [capture workflow](docs/capture-workflow.md) · [UI verification](docs/ui-verification/README.md).
+
 ## Running the project
 
 1. Clone the repository.

@@ -12,6 +12,19 @@
     <string name="osm_copyright_url" translatable="false">https://www.openstreetmap.org/copyright</string>
     <string name="osm_copyright_open_error">Unable to open OpenStreetMap copyright information</string>
     <string name="map_zoom_in">+</string>
+    <string name="map_loading">Loading saved locations…</string>
+    <string name="map_empty_title">No locations on the map yet</string>
+    <string name="map_empty_message">Capture Chinese text with location enabled to see pins here</string>
+    <string name="map_load_error_title">Couldn’t load saved locations</string>
+    <string name="map_load_error_message">Close and reopen this screen to try again.</string>
+    <string name="tutorial_welcome_title">Welcome to Chinese Travel!</string>
+    <string name="tutorial_welcome_description">Learn how to capture, translate, and explore Chinese text during your travels.</string>
+    <string name="tutorial_capture_title">Step 1: Capture Chinese Text</string>
+    <string name="tutorial_capture_description">Point your camera at any Chinese text names. The app will automatically detect and recognize the text using AI.</string>
+    <string name="tutorial_translation_title">Step 2: Get Translation &amp; Pinyin</string>
+    <string name="tutorial_translation_description">The app will provide you with Pinyin pronunciation and English translation, making Chinese text accessible to you instantly.</string>
+    <string name="tutorial_location_title">Step 3: Save with Location</string>
+    <string name="tutorial_location_description">Your captured text is automatically saved with your current location, creating a personal travel journal of your Chinese learning journey.</string>
     <string name="map_zoom_out">−</string>
     <string name="map_zoom_in_content_description">Zoom in</string>
     <string name="map_zoom_out_content_description">Zoom out</string>

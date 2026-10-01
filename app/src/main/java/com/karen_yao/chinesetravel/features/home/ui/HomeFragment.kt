@@ -21,7 +21,6 @@ import com.karen_yao.chinesetravel.databinding.FragmentHomeBinding
 import com.karen_yao.chinesetravel.features.capture.ui.CaptureFragment
 import com.karen_yao.chinesetravel.features.map.ui.MapFragment
 import com.karen_yao.chinesetravel.features.welcome.ui.WelcomeFragment
-import com.karen_yao.chinesetravel.shared.extensions.repo
 import com.karen_yao.chinesetravel.shared.ui.CardSpacingDecoration
 import com.karen_yao.chinesetravel.shared.ui.reserveFloatingActionSpace
 import kotlinx.coroutines.launch
@@ -34,7 +33,9 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         get() = requireNotNull(_binding)
 
     private val viewModel by lazy {
-        ViewModelProvider(this, HomeViewModelFactory(repo()))[HomeViewModel::class.java]
+        val host = requireActivity() as? HomeDependenciesOwner
+            ?: error("HomeFragment host must provide Home dependencies")
+        ViewModelProvider(this, host.createHomeViewModelFactory())[HomeViewModel::class.java]
     }
 
     private lateinit var snapsAdapter: SnapsAdapter

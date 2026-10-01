@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.annotation.MainThread
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.karen_yao.chinesetravel.core.media.ManagedImageLease
 import java.io.File
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job

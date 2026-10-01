@@ -12,9 +12,8 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.karen_yao.chinesetravel.R
-import com.karen_yao.chinesetravel.core.repository.TravelRepositoryOwner
 import com.karen_yao.chinesetravel.databinding.FragmentTextSelectionBinding
-import com.karen_yao.chinesetravel.features.capture.camera.ImageProcessor
+import com.karen_yao.chinesetravel.shared.ui.ImagePreviewLoader
 import com.karen_yao.chinesetravel.features.capture.ui.CaptureFragment
 import com.karen_yao.chinesetravel.features.home.ui.HomeFragment
 import com.karen_yao.chinesetravel.shared.ui.CardSpacingDecoration
@@ -28,11 +27,9 @@ class TextSelectionFragment : Fragment(R.layout.fragment_text_selection) {
     private var backCallback: OnBackPressedCallback? = null
     private val viewModel by lazy {
         ViewModelProvider(this, TextSelectionViewModelFactory {
-            when (val host = requireActivity()) {
-                is TextSelectionDependenciesOwner -> host.createTextSelectionDependencies()
-                is TravelRepositoryOwner -> productionTextSelectionDependencies(host.applicationContext, host.repository)
-                else -> error("TextSelectionFragment host must provide selection dependencies")
-            }
+            val host = requireActivity() as? TextSelectionDependenciesOwner
+                ?: error("TextSelectionFragment host must provide selection dependencies")
+            host.createTextSelectionDependencies()
         })[TextSelectionViewModel::class.java]
     }
 
@@ -51,7 +48,7 @@ class TextSelectionFragment : Fragment(R.layout.fragment_text_selection) {
         views.rvTextOptions.addItemDecoration(CardSpacingDecoration(resources.getDimensionPixelSize(R.dimen.list_gap)))
         views.rvTextOptions.adapter = adapter
         File(state.imagePath).takeIf { state.imagePath.isNotBlank() && it.exists() }?.let {
-            ImageProcessor().loadImageWithRotation(views.ivCapturedImage, it.absolutePath)
+            ImagePreviewLoader().loadFile(views.ivCapturedImage, it)
         }
         backCallback = object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() { viewModel.cancel() }

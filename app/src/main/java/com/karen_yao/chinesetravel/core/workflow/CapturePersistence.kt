@@ -1,13 +1,17 @@
 package com.karen_yao.chinesetravel.core.workflow
 
 import com.karen_yao.chinesetravel.core.database.entities.PlaceSnap
-import com.karen_yao.chinesetravel.core.repository.TravelRepository
-import com.karen_yao.chinesetravel.shared.utils.TranslationUtils
+import com.karen_yao.chinesetravel.core.repository.CapturedSnapStore
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 
 /**
  * Shared persistence step used by capture and the separate text-selection flow.
  */
-internal class CapturePersistence(private val repository: TravelRepository) {
+internal class CapturePersistence(
+    private val repository: CapturedSnapStore,
+    private val translate: suspend (String) -> String
+) {
 
     /**
      * Save a captured place snap and return the total count.
@@ -28,8 +32,8 @@ internal class CapturePersistence(private val repository: TravelRepository) {
         address: String?,
         imagePath: String
     ): Int {
-        // Get real translation using ML Kit Translate
-        val realTranslation = TranslationUtils.translateChineseToEnglish(chineseText)
+        val realTranslation = translate(chineseText)
+        currentCoroutineContext().ensureActive()
         
         val googleMapsLink = if (latitude != null && longitude != null) {
             "https://www.google.com/maps/search/?api=1&query=$latitude,$longitude"
@@ -49,5 +53,3 @@ internal class CapturePersistence(private val repository: TravelRepository) {
         return repository.saveSnapAndCount(placeSnap)
     }
 }
-
-

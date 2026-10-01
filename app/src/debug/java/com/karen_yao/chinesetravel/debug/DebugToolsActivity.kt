@@ -12,8 +12,7 @@ import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.karen_yao.chinesetravel.R
-import com.karen_yao.chinesetravel.core.database.AppDatabase
-import com.karen_yao.chinesetravel.core.repository.TravelRepository
+import com.karen_yao.chinesetravel.appContainer
 import com.karen_yao.chinesetravel.databinding.ActivityDebugToolsBinding
 import com.karen_yao.chinesetravel.shared.location.DeviceLocationProvider
 import com.karen_yao.chinesetravel.shared.utils.TestDataUtils
@@ -24,7 +23,7 @@ import kotlinx.coroutines.launch
 class DebugToolsActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityDebugToolsBinding
-    private val repository by lazy { TravelRepository(AppDatabase.getDatabase(this)) }
+    private val repository by lazy { appContainer.repository }
     private var spinnerInitialized = false
     private var pendingDeviceLocationTest = false
 

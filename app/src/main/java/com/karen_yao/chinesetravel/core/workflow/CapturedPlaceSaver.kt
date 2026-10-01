@@ -1,70 +1,29 @@
 package com.karen_yao.chinesetravel.core.workflow
 
-import android.content.Context
-import android.location.Geocoder
-import com.karen_yao.chinesetravel.core.repository.TravelRepository
-import com.karen_yao.chinesetravel.features.capture.camera.ImageProcessor
-import com.karen_yao.chinesetravel.shared.utils.PinyinUtils
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import java.io.File
-import java.util.Locale
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 
-/** Shared preparation and persistence boundary for both capture and text selection. */
+/** Shared preparation and persistence boundary for capture and text selection. */
 internal fun interface CapturedPlaceSaver {
     suspend fun save(chineseText: String, file: File): Int
 }
 
-internal fun productionCapturedPlaceSaver(
-    context: Context,
-    repository: TravelRepository,
-    imageProcessor: ImageProcessor = ImageProcessor()
-): CapturedPlaceSaver = AndroidCapturedPlaceSaver(
-    context.applicationContext, imageProcessor, CapturePersistence(repository)
-)
-
-private class AndroidCapturedPlaceSaver(
-    private val context: Context,
-    private val imageProcessor: ImageProcessor,
-    private val persistence: CapturePersistence
+/** Coordinates platform-independent work; Android services are supplied by the app. */
+internal class DefaultCapturedPlaceSaver(
+    private val persistence: CapturePersistence,
+    private val toPinyin: (String) -> String,
+    private val readLocation: suspend (File) -> Pair<Double, Double>?,
+    private val reverseGeocode: suspend (Double, Double) -> String?
 ) : CapturedPlaceSaver {
-    override suspend fun save(
-        chineseText: String,
-        file: File
-    ): Int {
-        val pinyin = if (chineseText.isNotBlank()) PinyinUtils.toPinyin(chineseText) else ""
-        val location = withContext(Dispatchers.IO) {
-            imageProcessor.extractLocationFromFile(file)
-        }
-        val address = location?.let { (latitude, longitude) ->
-            reverseGeocode(context.applicationContext, latitude, longitude)
-        }
+    override suspend fun save(chineseText: String, file: File): Int {
+        val pinyin = if (chineseText.isNotBlank()) toPinyin(chineseText) else ""
+        val location = readLocation(file)
+        currentCoroutineContext().ensureActive()
+        val address = location?.let { (latitude, longitude) -> reverseGeocode(latitude, longitude) }
+        currentCoroutineContext().ensureActive()
         return persistence.saveAndCount(
-            chineseText = chineseText,
-            pinyinText = pinyin,
-            latitude = location?.first,
-            longitude = location?.second,
-            address = address,
-            imagePath = file.absolutePath
+            chineseText, pinyin, location?.first, location?.second, address, file.absolutePath
         )
     }
-
-    private suspend fun reverseGeocode(
-        context: Context,
-        latitude: Double,
-        longitude: Double
-    ): String? = withContext(Dispatchers.IO) {
-        try {
-            Geocoder(context, Locale.getDefault())
-                .getFromLocation(latitude, longitude, 1)
-                ?.firstOrNull()
-                ?.getAddressLine(0)
-        } catch (exception: CancellationException) {
-            throw exception
-        } catch (_: Exception) {
-            null
-        }
-    }
 }
-

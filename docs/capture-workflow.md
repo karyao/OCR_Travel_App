@@ -6,8 +6,15 @@ CaptureViewModel owns decisions, the active job, and the managed-image lease.
 CaptureFragment owns Android contracts, CameraX preview binding, rendering, dialogs,
 Toasts, and Fragment transactions. CaptureWorkflowDependencies exposes application-scoped
 services without Activity, Fragment, LifecycleOwner, or Android Location/Uri arguments.
-The dependency-owner factory creates these services once per ViewModel; OCR closes in
-onCleared. CapturedPlaceSaver shares preparation and persistence with text selection.
+ChineseTravelApplication owns an AppContainer that wires the shared repository and saver.
+Feature host interfaces supply dependencies without concrete Activity casts or repository
+access from Fragments. Camera bindings are screen-scoped; the dependency factory creates
+OCR once per ViewModel, and OCR closes in onCleared. CapturedPlaceSaver shares preparation
+and persistence with text selection and receives platform services through injected
+functions. AndroidPlaceMetadata handles EXIF and address lookup outside the workflow.
+ManagedImageLease and shared orientation handling live in core/media; ImagePreviewLoader
+handles display-only loading independently of OCR processing. Translation cancellation
+propagates and its ML Kit client closes on success, failure, or cancellation.
 TextSelectionViewModel owns selection, saving, and cleanup after capture hands off the image.
 
 ## Event and effect rules

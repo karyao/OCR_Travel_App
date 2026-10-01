@@ -10,8 +10,6 @@ import androidx.camera.core.ImageCaptureException
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
-import com.karen_yao.chinesetravel.core.repository.TravelRepository
-import com.karen_yao.chinesetravel.core.workflow.productionCapturedPlaceSaver
 import com.karen_yao.chinesetravel.features.capture.camera.CameraManager
 import com.karen_yao.chinesetravel.features.capture.camera.ImageProcessor
 import com.karen_yao.chinesetravel.features.capture.camera.OcrOutcome
@@ -25,7 +23,6 @@ internal interface CaptureDependenciesOwner {
 }
 
 internal data class CaptureDependencies(
-    val repository: TravelRepository,
     val permissions: CapturePermissionChecker,
     val camera: CaptureCamera,
     val createWorkflow: () -> CaptureWorkflowDependencies
@@ -69,11 +66,10 @@ internal interface CaptureCamera {
 
 internal fun productionCaptureDependencies(
     context: Context,
-    repository: TravelRepository
+    saver: CaptureSaver
 ): CaptureDependencies {
     val applicationContext = context.applicationContext
     return CaptureDependencies(
-        repository = repository,
         permissions = AndroidCapturePermissionChecker,
         camera = CameraManagerCaptureCamera(),
         createWorkflow = {
@@ -95,7 +91,7 @@ internal fun productionCaptureDependencies(
                         applicationContext.contentResolver.openInputStream(Uri.parse(uri))
                     }
                 },
-                saver = productionCapturedPlaceSaver(applicationContext, repository, imageProcessor)
+                saver = saver
             )
         }
     )

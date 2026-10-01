@@ -20,7 +20,6 @@ import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import com.karen_yao.chinesetravel.R
-import com.karen_yao.chinesetravel.core.repository.TravelRepository
 import com.karen_yao.chinesetravel.debug.CaptureTestHostActivity
 import com.karen_yao.chinesetravel.features.capture.camera.OcrLine
 import com.karen_yao.chinesetravel.features.capture.camera.OcrOutcome
@@ -73,8 +72,8 @@ class CaptureFragmentBehaviorTest {
         saver = FakeCaptureSaver()
         val context = ApplicationProvider.getApplicationContext<Context>()
         testFiles = Files.createTempDirectory(context.filesDir.toPath(), "capture-behavior-").toFile()
-        CaptureTestHostActivity.dependenciesFactory = { _, repository ->
-            dependencies(repository)
+        CaptureTestHostActivity.dependenciesFactory = { _, _ ->
+            dependencies()
         }
     }
 
@@ -518,8 +517,7 @@ class CaptureFragmentBehaviorTest {
     private fun launch(): ActivityScenario<CaptureTestHostActivity> =
         ActivityScenario.launch(CaptureTestHostActivity::class.java)
 
-    private fun dependencies(repository: TravelRepository) = CaptureDependencies(
-        repository = repository,
+    private fun dependencies() = CaptureDependencies(
         permissions = permissions,
         camera = camera,
         createWorkflow = {

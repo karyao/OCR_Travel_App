@@ -5,11 +5,6 @@ import com.karen_yao.chinesetravel.core.database.entities.PlaceSnap
 import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
 
-/** Hosts expose their repository without requiring a concrete Activity type. */
-interface TravelRepositoryOwner {
-    val repository: TravelRepository
-}
-
 /**
  * The collection operations required by the Home feature.
  *
@@ -22,11 +17,21 @@ interface SnapRepository {
     suspend fun deleteSnap(snap: PlaceSnap)
 }
 
+/** Read boundary used by the map, independent of Room and its implementation. */
+fun interface LocatedSnapSource {
+    fun getSnapsWithLocation(): Flow<List<PlaceSnap>>
+}
+
+/** Atomic write boundary used by the capture workflow. */
+fun interface CapturedSnapStore {
+    suspend fun saveSnapAndCount(snap: PlaceSnap): Int
+}
+
 /**
  * Repository pattern implementation for travel data.
  * Provides a clean interface between UI and data layer.
  */
-class TravelRepository(private val database: AppDatabase) : SnapRepository {
+class TravelRepository(private val database: AppDatabase) : SnapRepository, LocatedSnapSource, CapturedSnapStore {
     
     /**
      * Get all captured snaps as a Flow for reactive UI updates.
@@ -39,7 +44,7 @@ class TravelRepository(private val database: AppDatabase) : SnapRepository {
     suspend fun saveSnap(snap: PlaceSnap) = database.placeSnapDao().insert(snap)
 
     /** Atomically saves a snap and returns the new total. */
-    suspend fun saveSnapAndCount(snap: PlaceSnap): Int = database.withTransaction {
+    override suspend fun saveSnapAndCount(snap: PlaceSnap): Int = database.withTransaction {
         database.placeSnapDao().insert(snap)
         database.placeSnapDao().count()
     }
@@ -70,5 +75,5 @@ class TravelRepository(private val database: AppDatabase) : SnapRepository {
     /**
      * Get all snaps with valid GPS coordinates for map display.
      */
-    fun getSnapsWithLocation() = database.placeSnapDao().snapsWithLocation()
+    override fun getSnapsWithLocation() = database.placeSnapDao().snapsWithLocation()
 }

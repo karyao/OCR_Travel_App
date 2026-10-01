@@ -24,7 +24,8 @@
         <org.osmdroid.views.MapView
             android:id="@+id/mapView"
             android:layout_width="match_parent"
-            android:layout_height="match_parent" />
+            android:layout_height="match_parent"
+            android:visibility="gone" />
         <ScrollView
             android:id="@+id/mapEmptyScroll"
             android:layout_width="match_parent"
@@ -39,25 +40,35 @@
                 android:orientation="vertical"
                 android:padding="@dimen/space_32"
                 android:visibility="gone">
+                <ProgressBar
+                    android:id="@+id/mapLoadingIndicator"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_marginBottom="@dimen/space_16"
+                    android:contentDescription="@string/map_loading"
+                    android:visibility="gone" />
                 <TextView
+                    android:id="@+id/tvMapStateIcon"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="@dimen/space_16"
                     android:text="🗺️"
                     android:textSize="48sp" />
                 <TextView
+                    android:id="@+id/tvMapStateTitle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="@dimen/space_8"
-                    android:text="No locations on the map yet"
+                    android:text="@string/map_empty_title"
                     android:textColor="@color/text_primary"
                     android:textSize="18sp"
                     android:textStyle="bold" />
                 <TextView
+                    android:id="@+id/tvMapStateMessage"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:gravity="center"
-                    android:text="Capture Chinese text with location enabled to see pins here"
+                    android:text="@string/map_empty_message"
                     android:textColor="@color/text_secondary"
                     android:textSize="14sp" />
             </LinearLayout>

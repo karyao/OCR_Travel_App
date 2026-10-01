@@ -1,4 +1,4 @@
-package com.karen_yao.chinesetravel.features.capture.ui
+package com.karen_yao.chinesetravel.core.media
 
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

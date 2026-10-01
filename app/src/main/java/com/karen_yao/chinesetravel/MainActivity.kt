@@ -2,23 +2,20 @@ package com.karen_yao.chinesetravel
 
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
-import androidx.fragment.app.Fragment
-import com.karen_yao.chinesetravel.core.database.AppDatabase
-import com.karen_yao.chinesetravel.core.repository.TravelRepository
-import com.karen_yao.chinesetravel.core.repository.TravelRepositoryOwner
-import com.karen_yao.chinesetravel.features.capture.ui.CaptureDependencies
-import com.karen_yao.chinesetravel.features.capture.ui.productionCaptureDependencies
+import com.karen_yao.chinesetravel.features.capture.ui.CaptureDependenciesOwner
+import com.karen_yao.chinesetravel.features.home.ui.HomeDependenciesOwner
+import com.karen_yao.chinesetravel.features.map.ui.MapDependenciesOwner
+import com.karen_yao.chinesetravel.features.textselection.ui.TextSelectionDependenciesOwner
 import com.karen_yao.chinesetravel.features.welcome.ui.WelcomeFragment
 import com.karen_yao.chinesetravel.shared.ui.applyScreenInsets
 import com.karen_yao.chinesetravel.shared.ui.configureScreenWindow
 
 /**
  * MainActivity hosts a single container for fragments.
- * It creates one TravelRepository (Room DB) and exposes it to fragments.
+ * Supplies feature dependencies from the application composition root.
  */
-class MainActivity : AppCompatActivity(), TravelRepositoryOwner {
-    
-    override lateinit var repository: TravelRepository
+internal class MainActivity : AppCompatActivity(), HomeDependenciesOwner, MapDependenciesOwner,
+    CaptureDependenciesOwner, TextSelectionDependenciesOwner {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -27,8 +24,6 @@ class MainActivity : AppCompatActivity(), TravelRepositoryOwner {
         findViewById<android.view.View>(R.id.container).applyScreenInsets()
 
         supportActionBar?.hide()
-        // Build Room database + Repository
-        repository = TravelRepository(AppDatabase.getDatabase(this))
 
         if (savedInstanceState == null) {
             supportFragmentManager.beginTransaction()
@@ -37,13 +32,8 @@ class MainActivity : AppCompatActivity(), TravelRepositoryOwner {
         }
     }
 
-    internal fun createCaptureDependencies(): CaptureDependencies =
-        productionCaptureDependencies(this, repository)
+    override fun createHomeViewModelFactory() = appContainer.createHomeViewModelFactory()
+    override fun createMapViewModelFactory() = appContainer.createMapViewModelFactory()
+    override fun createCaptureDependencies() = appContainer.createCaptureDependencies()
+    override fun createTextSelectionDependencies() = appContainer.createTextSelectionDependencies()
 }
-
-/**
- * Convenience extension so fragments can access the shared repository.
- * @deprecated Use Fragment.repo() extension instead
- */
-@Deprecated("Use Fragment.repo() extension instead")
-fun Fragment.repo(): TravelRepository = (requireActivity() as TravelRepositoryOwner).repository

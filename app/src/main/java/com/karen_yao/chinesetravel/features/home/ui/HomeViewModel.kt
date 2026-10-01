@@ -20,6 +20,10 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
 
+internal interface HomeDependenciesOwner {
+    fun createHomeViewModelFactory(): ViewModelProvider.Factory
+}
+
 data class HomeUiState(
     val snaps: List<PlaceSnap> = emptyList(),
     val isLoading: Boolean = true,

@@ -7,7 +7,6 @@ import android.os.Bundle
 import android.view.MotionEvent
 import android.view.View
 import android.widget.Button
-import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.net.toUri
@@ -17,8 +16,6 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.karen_yao.chinesetravel.R
-import com.karen_yao.chinesetravel.core.database.entities.PlaceSnap
-import com.karen_yao.chinesetravel.shared.extensions.repo
 import com.google.android.material.button.MaterialButton
 import kotlinx.coroutines.launch
 import org.osmdroid.config.Configuration
@@ -40,7 +37,9 @@ import org.osmdroid.views.overlay.Marker
 class MapFragment : Fragment(R.layout.fragment_map) {
 
     private val viewModel by lazy {
-        ViewModelProvider(this, MapViewModelFactory(repo()))[MapViewModel::class.java]
+        val host = requireActivity() as? MapDependenciesOwner
+            ?: error("MapFragment host must provide map dependencies")
+        ViewModelProvider(this, host.createMapViewModelFactory())[MapViewModel::class.java]
     }
 
     private var mapView: MapView? = null
@@ -212,62 +211,48 @@ class MapFragment : Fragment(R.layout.fragment_map) {
     }
 
     private fun observeSnaps(view: View) {
-        val emptyState = view.findViewById<LinearLayout>(R.id.emptyStateLayout)
-        val emptyScroll = view.findViewById<View>(R.id.mapEmptyScroll)
-        val attribution = view.findViewById<TextView>(R.id.tvOsmAttribution)
-
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.snapsWithLocation.collect { snaps ->
-                    val map = mapView ?: return@collect
-                    if (snaps.isEmpty()) {
-                        emptyState.visibility = View.VISIBLE
-                        emptyScroll.visibility = View.VISIBLE
-                        map.visibility = View.GONE
-                        attribution.visibility = View.GONE
-                        hideZoomControls()
-                    } else {
-                        emptyState.visibility = View.GONE
-                        emptyScroll.visibility = View.GONE
-                        map.visibility = View.VISIBLE
-                        attribution.visibility = View.VISIBLE
-                        showZoomControls(map)
-                        placeMarkers(map, snaps)
-                    }
-                }
+                viewModel.uiState.collect { render(view, it) }
             }
         }
     }
 
-    /**
-     * Clears existing markers and places a new pin for each snap.
-     * Auto-zooms the map to fit all markers into view.
-     */
-    private fun placeMarkers(map: MapView, snaps: List<PlaceSnap>) {
+    private fun render(view: View, state: MapUiState) {
+        val map = mapView ?: return
+        val hasPins = state.pins.isNotEmpty()
+        view.findViewById<View>(R.id.emptyStateLayout).visibility = if (hasPins) View.GONE else View.VISIBLE
+        view.findViewById<View>(R.id.mapEmptyScroll).visibility = if (hasPins) View.GONE else View.VISIBLE
+        view.findViewById<View>(R.id.mapLoadingIndicator).visibility = if (state.isLoading) View.VISIBLE else View.GONE
+        view.findViewById<View>(R.id.tvMapStateIcon).visibility = if (state.isLoading) View.GONE else View.VISIBLE
+        view.findViewById<TextView>(R.id.tvMapStateTitle).setText(when {
+            state.isLoading -> R.string.map_loading
+            state.loadFailed -> R.string.map_load_error_title
+            else -> R.string.map_empty_title
+        })
+        view.findViewById<TextView>(R.id.tvMapStateMessage).apply {
+            setText(if (state.loadFailed) R.string.map_load_error_message else R.string.map_empty_message)
+            visibility = if (state.isLoading) View.GONE else View.VISIBLE
+        }
+        map.visibility = if (hasPins) View.VISIBLE else View.GONE
+        view.findViewById<View>(R.id.tvOsmAttribution).visibility = if (hasPins) View.VISIBLE else View.GONE
+        if (hasPins) showZoomControls(map) else hideZoomControls()
+        placeMarkers(map, state.pins)
+    }
+
+    /** Maps already-prepared UI data to Android map widgets. */
+    private fun placeMarkers(map: MapView, pins: List<MapPin>) {
         map.overlays.clear()
-
-        val geoPoints = mutableListOf<GeoPoint>()
-
-        for (snap in snaps) {
-            val lat = snap.lat ?: continue
-            val lng = snap.longitude ?: continue
-            val point = GeoPoint(lat, lng)
-            geoPoints.add(point)
-
+        val geoPoints = pins.map { pin ->
+            val point = GeoPoint(pin.latitude, pin.longitude)
             val marker = Marker(map)
             marker.position = point
             marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-
-            // Title = Chinese text (shown bold at top of popup)
-            marker.title = snap.nameCn
-
-            // Snippet = Pinyin + Translation + Address (shown in popup body)
-            marker.snippet = buildSnippet(snap)
-
+            marker.title = pin.title
+            marker.snippet = pin.snippet
             map.overlays.add(marker)
+            point
         }
-
-        // Auto-zoom to fit all markers
         when {
             geoPoints.size == 1 -> {
                 map.controller.setZoom(15.0)
@@ -276,29 +261,12 @@ class MapFragment : Fragment(R.layout.fragment_map) {
             geoPoints.size > 1 -> {
                 val boundingBox = BoundingBox.fromGeoPoints(geoPoints)
                 map.post {
-                    map.zoomToBoundingBox(boundingBox.increaseByScale(1.3f), true)
+                    // A queued fit must not target a detached or replaced view.
+                    if (mapView === map) map.zoomToBoundingBox(boundingBox.increaseByScale(1.3f), true)
                 }
             }
         }
-
         map.invalidate()
-    }
-
-    /**
-     * Builds the info-window body text with Pinyin, English translation, and address.
-     */
-    private fun buildSnippet(snap: PlaceSnap): String {
-        return buildString {
-            if (snap.namePinyin.isNotBlank()) {
-                append("📖 ${snap.namePinyin}")
-            }
-            if (snap.translation.isNotBlank()) {
-                append("\n🌐 ${snap.translation}")
-            }
-            if (!snap.address.isNullOrBlank()) {
-                append("\n📍 ${snap.address}")
-            }
-        }
     }
 
     // osmdroid requires resume/pause lifecycle calls to manage tile downloads

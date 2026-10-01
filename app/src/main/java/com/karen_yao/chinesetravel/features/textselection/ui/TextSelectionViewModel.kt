@@ -7,7 +7,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
-import com.karen_yao.chinesetravel.features.capture.ui.ManagedImageLease
+import com.karen_yao.chinesetravel.core.media.ManagedImageLease
 import java.io.File
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable

@@ -32,6 +32,9 @@ class CaptureViewModelTest {
     private var generation = 0L
     private var saveCalls = 0
     private var recognitionCalls = 0
+    private var locationCalls = 0
+    private var importCalls = 0
+    private var captureCalls = 0
     private var closed = 0
     private var location: suspend () -> CaptureLocationResult = {
         CaptureLocationResult.Unavailable(FailureReason.LOCATION_DISABLED)
@@ -45,7 +48,7 @@ class CaptureViewModelTest {
         root = temporary.newFolder("managed")
         model = CaptureViewModel(CaptureWorkflowDependencies(
             filesRoot = root,
-            location = CaptureLocationSource { location() },
+            location = CaptureLocationSource { locationCalls++; location() },
             recognizer = object : CaptureTextRecognizer {
                 override suspend fun recognize(originalFile: File): OcrOutcome {
                     recognitionCalls++
@@ -53,9 +56,13 @@ class CaptureViewModelTest {
                 }
                 override fun close() { closed++ }
             },
-            galleryImporter = CaptureGallerySource { import(it) },
+            galleryImporter = CaptureGallerySource { importCalls++; import(it) },
             saver = CaptureSaver { _, _ -> saveCalls++; save() },
-            cleanupDispatcher = dispatcher
+            cleanupDispatcher = dispatcher,
+            createCameraFile = {
+                captureCalls++
+                File.createTempFile("snap_", ".jpg", root)
+            }
         ))
         store.put("capture", model)
         generation = model.attachView()
@@ -209,7 +216,107 @@ class CaptureViewModelTest {
         send(CaptureEvent.GalleryResult(id, "ignored"))
         assertState(CaptureState.Idle)
         assertTrue(model.uiState.value.controlsEnabled)
+        assertEquals(0, locationCalls)
+        assertEquals(0, importCalls)
+        assertEquals(0, captureCalls)
+        assertEquals(0, saveCalls)
         assertEquals(0, recognitionCalls)
+        assertTrue(model.uiState.value.effects.isEmpty())
+    }
+
+    @Test fun galleryCancellationAfterCaptureDoesNotRestartWorkOrKeepMessages() = runTest(dispatcher) {
+        recognize = { outcome("字") }
+        complete(capture())
+        assertState(CaptureState.Idle)
+        assertTrue(model.uiState.value.effects.any { it.effect is CaptureEffect.Message })
+        val previousCounts = listOf(locationCalls, importCalls, captureCalls, recognitionCalls, saveCalls)
+        repeat(3) {
+            val id = gallery()
+            send(CaptureEvent.Paused)
+            send(CaptureEvent.GalleryResult(id, null))
+            send(CaptureEvent.Resumed)
+            send(CaptureEvent.CameraReady(true))
+            send(CaptureEvent.GalleryResult(id, "content://late-image"))
+            assertState(CaptureState.Idle)
+            assertTrue(model.uiState.value.controlsEnabled)
+            assertEquals(previousCounts, listOf(locationCalls, importCalls, captureCalls, recognitionCalls, saveCalls))
+            assertTrue(model.uiState.value.effects.isEmpty())
+        }
+    }
+
+    @Test fun oldPickerResultsCannotAffectANewPickerOrView() = runTest(dispatcher) {
+        val oldId = gallery()
+        send(CaptureEvent.GalleryResult(oldId, null))
+        val currentId = gallery()
+        val queue = model.uiState.value.effects
+        send(CaptureEvent.GalleryResult(oldId, "content://old-image"))
+        send(CaptureEvent.GalleryResult(oldId, null))
+        assertState(CaptureState.SelectingGalleryImage)
+        assertEquals(queue, model.uiState.value.effects)
+        val oldGeneration = generation
+        destroyAndReattach()
+        val newId = gallery()
+        model.onEvent(oldGeneration, CaptureEvent.GalleryResult(currentId, "content://old-view"))
+        assertState(CaptureState.SelectingGalleryImage)
+        send(CaptureEvent.GalleryResult(newId, null))
+        assertTrue(model.uiState.value.effects.isEmpty())
+        assertEquals(0, importCalls)
+        assertEquals(0, recognitionCalls)
+        assertEquals(0, locationCalls)
+    }
+
+    @Test fun galleryProgressUsesStateWithoutProgressMessagesOrLocationLookup() = runTest(dispatcher) {
+        val imported = CompletableDeferred<File>()
+        val recognized = CompletableDeferred<OcrOutcome>()
+        val saved = CompletableDeferred<Int>()
+        import = { imported.await() }
+        recognize = { recognized.await() }
+        save = { saved.await() }
+        val id = gallery()
+        acknowledgeAll()
+        send(CaptureEvent.GalleryResult(id, "content://image"))
+        assertState(CaptureState.ImportingImage)
+        assertTrue(model.uiState.value.effects.isEmpty())
+        val file = File(root, "gallery.jpg").apply { writeText("image") }
+        imported.complete(file)
+        dispatcher.scheduler.runCurrent()
+        assertState(CaptureState.RecognizingText)
+        assertTrue(model.uiState.value.effects.isEmpty())
+        send(CaptureEvent.GalleryResult(id, "content://duplicate"))
+        recognized.complete(outcome("测试文本"))
+        dispatcher.scheduler.runCurrent()
+        assertState(CaptureState.Saving)
+        assertTrue(model.uiState.value.effects.isEmpty())
+        saved.complete(1)
+        dispatcher.scheduler.runCurrent()
+        acknowledgeAll()
+        assertState(CaptureState.Idle)
+        assertEquals(1, importCalls)
+        assertEquals(1, recognitionCalls)
+        assertEquals(1, saveCalls)
+        assertEquals(0, locationCalls)
+        assertEquals(0, captureCalls)
+    }
+
+    @Test fun cameraProgressUsesStateAndRetainsSuccessfulLocation() = runTest(dispatcher) {
+        val located = CompletableDeferred<CaptureLocationResult>()
+        val coordinates = CaptureLocation(49.2, -123.1)
+        location = { located.await() }
+        recognize = { awaitCancellation() }
+        send(CaptureEvent.CaptureTapped(true))
+        assertState(CaptureState.GettingLocation)
+        assertTrue(model.uiState.value.effects.isEmpty())
+        located.complete(CaptureLocationResult.Success(coordinates))
+        dispatcher.scheduler.runCurrent()
+        assertState(CaptureState.Capturing)
+        val photo = effect<CaptureEffect.TakePhoto>()
+        assertEquals(coordinates, (photo.effect as CaptureEffect.TakePhoto).location)
+        assertFalse(model.uiState.value.effects.any { it.effect is CaptureEffect.Message })
+        complete(photo)
+        assertState(CaptureState.RecognizingText)
+        assertTrue(model.uiState.value.effects.isEmpty())
+        assertEquals(1, locationCalls)
+        assertEquals(1, recognitionCalls)
     }
 
     @Test fun importFailureRemovesPartialFileAndEntersRecoverableError() = runTest(dispatcher) {
@@ -243,6 +350,9 @@ class CaptureViewModelTest {
         send(CaptureEvent.GalleryResult(gallery(), "content://image"))
         assertState(CaptureState.WaitingForTextSelection)
         assertEquals(file, (effect<CaptureEffect.OpenTextSelection>().effect as CaptureEffect.OpenTextSelection).file)
+        assertEquals(1, importCalls)
+        assertEquals(1, recognitionCalls)
+        assertEquals(0, locationCalls)
     }
 
     @Test fun emptyOcrHoldsImageUntilDialogDismissal() = runTest(dispatcher) {

@@ -88,6 +88,15 @@
                     app:layout_constraintBottom_toBottomOf="parent"
                     app:layout_constraintDimensionRatio="4:3" />
             </androidx.constraintlayout.widget.ConstraintLayout>
+            <TextView
+                android:id="@+id/tvCaptureStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/space_12"
+                android:textSize="16sp"
+                android:textColor="@color/text_primary"
+                android:accessibilityLiveRegion="polite"
+                android:visibility="gone" />
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
     <com.google.android.material.card.MaterialCardView

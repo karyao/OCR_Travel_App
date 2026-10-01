@@ -1,6 +1,12 @@
 <resources>
     <string name="app_name">ChineseTravel</string>
     <string name="common_back">← Back</string>
+    <string name="capture_getting_location">Getting location…</string>
+    <string name="capture_waiting_for_camera">Waiting for camera…</string>
+    <string name="capture_taking_photo">Taking photo…</string>
+    <string name="capture_loading_image">Loading image…</string>
+    <string name="capture_reading_text">Reading text…</string>
+    <string name="capture_saving">Saving…</string>
     <string name="osm_attribution">© OpenStreetMap contributors</string>
     <string name="osm_attribution_content_description">Open OpenStreetMap copyright information</string>
     <string name="osm_copyright_url" translatable="false">https://www.openstreetmap.org/copyright</string>

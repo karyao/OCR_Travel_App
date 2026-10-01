@@ -44,6 +44,7 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
     private var locationRequest: CaptureEffectEnvelope? = null
     private var galleryRequest: CaptureEffectEnvelope? = null
     private var noTextDialog: AlertDialog? = null
+    private var activeToast: Toast? = null
     private var lastTapTime = 0L
 
     private val pickImage = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -117,6 +118,7 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
 
     override fun onPause() {
         cameraBinding++
+        cancelToast()
         send(CaptureEvent.Paused)
         dependencies.camera.stop()
         super.onPause()
@@ -124,6 +126,7 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
 
     override fun onDestroyView() {
         cameraBinding++
+        cancelToast()
         send(CaptureEvent.ViewDestroyed)
         noTextDialog?.setOnDismissListener(null)
         noTextDialog?.dismiss()
@@ -143,6 +146,20 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
             root.findViewById<Button>(it).isEnabled = state.controlsEnabled
         }
         root.findViewById<Button>(R.id.btnSwitchCamera).text = if (state.isBackCamera) "📷" else "🤳"
+        val progressText = when (state.state) {
+            CaptureState.GettingLocation -> R.string.capture_getting_location
+            CaptureState.WaitingForCamera -> R.string.capture_waiting_for_camera
+            CaptureState.Capturing -> R.string.capture_taking_photo
+            CaptureState.ImportingImage -> R.string.capture_loading_image
+            CaptureState.RecognizingText -> R.string.capture_reading_text
+            CaptureState.Saving -> R.string.capture_saving
+            else -> null
+        }
+        root.findViewById<TextView>(R.id.tvCaptureStatus).apply {
+            val label = progressText?.let { getString(it) }.orEmpty()
+            if (text.toString() != label) text = label
+            visibility = if (progressText == null) View.GONE else View.VISIBLE
+        }
     }
 
     private fun bindCamera(switch: Boolean = false) {
@@ -161,7 +178,7 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
                 val back = dependencies.camera.isBackCamera()
                 send(CaptureEvent.CameraReady(back, if (switch)
                     "Switched to ${if (back) "back" else "front"} camera"
-                    else "Camera ready! Point at Chinese text"))
+                    else null))
             }
         }
         if (switch) dependencies.camera.switch(requireContext(), preview, viewLifecycleOwner, onError, onReady)
@@ -189,7 +206,10 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
 
     private fun execute(command: CaptureEffectEnvelope) {
         when (val effect = command.effect) {
-            is CaptureEffect.Message -> Toast.makeText(requireContext(), effect.text, Toast.LENGTH_SHORT).show()
+            is CaptureEffect.Message -> {
+                cancelToast()
+                activeToast = Toast.makeText(requireContext(), effect.text, Toast.LENGTH_SHORT).also { it.show() }
+            }
             CaptureEffect.RequestLocationPermission -> {
                 locationRequest = command
                 locationPermissionLauncher.launch(arrayOf(
@@ -197,6 +217,7 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
                 ))
             }
             CaptureEffect.OpenGallery -> {
+                cancelToast()
                 galleryRequest = command
                 pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
             }
@@ -219,6 +240,11 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
             CaptureEffect.NavigateHome -> parentFragmentManager.beginTransaction()
                 .replace(R.id.container, HomeFragment()).commit()
         }
+    }
+
+    private fun cancelToast() {
+        activeToast?.cancel()
+        activeToast = null
     }
 
     private fun showNoTextDialog(command: CaptureEffectEnvelope) {

@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
 import android.view.View
+import android.widget.TextView
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
@@ -54,6 +55,9 @@ class CaptureFragmentBehaviorTest {
     private lateinit var saver: FakeCaptureSaver
     private lateinit var testFiles: File
     private var locationPermissionChanged = false
+    private var locationCalls = 0
+    private var importCalls = 0
+    private var locationSource: suspend () -> CaptureLocationResult = { locationResult }
     private var locationResult: CaptureLocationResult =
         CaptureLocationResult.Unavailable(
             DeviceLocationProvider.FailureReason.LOCATION_DISABLED
@@ -191,6 +195,7 @@ class CaptureFragmentBehaviorTest {
             scenario.onActivity { activity ->
                 assertEquals(0, camera.captureRequests)
                 assertFalse(activity.findViewById<View>(R.id.btnShoot).isEnabled)
+                assertStatus(activity.findViewById(R.id.container), R.string.capture_waiting_for_camera)
                 if (destroyBeforeReady) {
                     activity.supportFragmentManager.beginTransaction()
                         .replace(R.id.container, WelcomeFragment()).commitNow()
@@ -277,6 +282,7 @@ class CaptureFragmentBehaviorTest {
         launch().use { scenario ->
             scenario.onActivity { it.findViewById<View>(R.id.btnShoot).performClick() }
             assertTrue(started.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+            awaitStatus(R.string.capture_reading_text)
             scenario.recreate()
             assertTrue(cancelled.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
             gate.complete(Unit)
@@ -285,6 +291,7 @@ class CaptureFragmentBehaviorTest {
                 assertEquals(0, saver.saveCalls)
                 assertTrue(it.supportFragmentManager.findFragmentById(R.id.container) is CaptureFragment)
                 assertTrue(it.findViewById<View>(R.id.btnShoot).isEnabled)
+                assertStatus(it.findViewById(R.id.container), null)
             }
         }
     }
@@ -339,20 +346,135 @@ class CaptureFragmentBehaviorTest {
     @Test
     fun galleryCancellationRestoresIdleControls() {
         launch().use { scenario ->
-            scenario.onActivity { it.findViewById<View>(R.id.btnGallery).performClick() }
-            val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-            assertTrue("Photo picker did not open", device.wait(
-                Until.hasObject(By.textContains("Photos")), UI_TIMEOUT_MILLIS))
-            device.pressBack()
-            assertTrue("Capture did not resume", device.wait(
-                Until.hasObject(By.res("com.karen_yao.chinesetravel:id/btnShoot")), UI_TIMEOUT_MILLIS))
-            InstrumentationRegistry.getInstrumentation().waitForIdleSync()
-            scenario.onActivity {
-                assertTrue(it.findViewById<View>(R.id.btnShoot).isEnabled)
-                assertTrue(it.findViewById<View>(R.id.btnGallery).isEnabled)
-                assertEquals(0, camera.captureRequests)
+            repeat(3) {
+                cancelGallery(scenario)
+                scenario.onActivity {
+                    assertEquals(0, camera.captureRequests)
+                    assertEquals(0, locationCalls)
+                    assertEquals(0, importCalls)
+                    assertEquals(0, recognizer.recognitionCalls)
+                    assertEquals(0, saver.saveCalls)
+                }
             }
         }
+    }
+
+    @Test
+    fun galleryCancellationAfterCaptureDoesNotRestartServices() {
+        recognizer.outcome = outcome("字")
+        camera.completeImmediately = true
+        launch().use { scenario ->
+            scenario.onActivity { it.findViewById<View>(R.id.btnShoot).performClick() }
+            awaitReadyControls()
+            scenario.onActivity {
+                assertEquals(1, camera.captureRequests)
+                assertEquals(1, locationCalls)
+                assertEquals(1, recognizer.recognitionCalls)
+            }
+            cancelGallery(scenario)
+            scenario.onActivity {
+                assertEquals(1, camera.captureRequests)
+                assertEquals(1, locationCalls)
+                assertEquals(1, recognizer.recognitionCalls)
+                assertEquals(0, importCalls)
+                assertEquals(0, saver.saveCalls)
+            }
+        }
+    }
+
+    @Test
+    fun locationAndCaptureStatusFollowActiveWorkAndClearOnPause() {
+        val locationGate = CompletableDeferred<CaptureLocationResult>()
+        locationSource = { locationGate.await() }
+        launch().use { scenario ->
+            scenario.onActivity { it.findViewById<View>(R.id.btnShoot).performClick() }
+            awaitStatus(R.string.capture_getting_location)
+            val coordinates = CaptureLocation(49.2, -123.1)
+            locationGate.complete(CaptureLocationResult.Success(coordinates))
+            awaitStatus(R.string.capture_taking_photo)
+            scenario.onActivity {
+                assertEquals(coordinates.latitude, checkNotNull(camera.lastLocation).latitude, 0.0)
+                assertEquals(coordinates.longitude, checkNotNull(camera.lastLocation).longitude, 0.0)
+            }
+            scenario.moveToState(Lifecycle.State.CREATED)
+            scenario.onActivity { assertStatus(it.findViewById(R.id.container), null) }
+            scenario.moveToState(Lifecycle.State.RESUMED)
+            scenario.onActivity { assertStatus(it.findViewById(R.id.container), null) }
+        }
+    }
+
+    @Test
+    fun readingStatusClearsWhenRecognitionFinishesOrFails() {
+        for (fails in listOf(false, true)) {
+            val gate = CompletableDeferred<Unit>()
+            recognizer = FakeCaptureTextRecognizer(outcome("字"), gate).apply {
+                failure = if (fails) "recognition failed" else null
+            }
+            camera.completeImmediately = true
+            launch().use { scenario ->
+                scenario.onActivity { it.findViewById<View>(R.id.btnShoot).performClick() }
+                awaitStatus(R.string.capture_reading_text)
+                gate.complete(Unit)
+                awaitReadyControls()
+                scenario.onActivity { assertStatus(it.findViewById(R.id.container), null) }
+            }
+        }
+    }
+
+    @Test
+    fun savingStatusClearsWhenViewIsDestroyed() {
+        saver.gate = CompletableDeferred()
+        camera.completeImmediately = true
+        launch().use { scenario ->
+            scenario.onActivity { it.findViewById<View>(R.id.btnShoot).performClick() }
+            awaitStatus(R.string.capture_saving)
+            scenario.onActivity { activity ->
+                val oldRoot = checkNotNull(activity.supportFragmentManager.findFragmentById(R.id.container)?.view)
+                activity.supportFragmentManager.beginTransaction()
+                    .replace(R.id.container, WelcomeFragment()).commitNow()
+                assertStatus(oldRoot, null)
+                assertEquals(1, saver.saveCalls)
+            }
+        }
+    }
+
+    private fun cancelGallery(scenario: ActivityScenario<CaptureTestHostActivity>) {
+        scenario.onActivity { it.findViewById<View>(R.id.btnGallery).performClick() }
+        val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+        assertTrue("Photo picker did not open", device.wait(
+            Until.hasObject(By.textContains("Photos")), UI_TIMEOUT_MILLIS))
+        device.pressBack()
+        awaitReadyControls()
+        scenario.onActivity {
+            assertTrue(it.findViewById<View>(R.id.btnGallery).isEnabled)
+            assertTrue(it.findViewById<View>(R.id.btnSwitchCamera).isEnabled)
+            assertStatus(it.findViewById(R.id.container), null)
+        }
+        assertFalse(device.hasObject(By.text("No image selected")))
+        assertFalse(device.hasObject(By.text("Text too short, please try again")))
+        assertFalse(device.hasObject(By.text("Camera ready! Point at Chinese text")))
+    }
+
+    private fun awaitReadyControls() {
+        val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+        assertTrue("Capture controls did not become ready", device.wait(
+            Until.hasObject(By.res("com.karen_yao.chinesetravel:id/btnShoot").enabled(true)), UI_TIMEOUT_MILLIS))
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+    }
+
+    private fun awaitStatus(resource: Int) {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val device = UiDevice.getInstance(instrumentation)
+        assertTrue("Capture status was not shown", device.wait(
+            Until.hasObject(By.res("com.karen_yao.chinesetravel:id/tvCaptureStatus")
+                .text(instrumentation.targetContext.getString(resource))), UI_TIMEOUT_MILLIS))
+    }
+
+    private fun assertStatus(root: View, resource: Int?) {
+        val status = root.findViewById<TextView>(R.id.tvCaptureStatus)
+        assertEquals(if (resource == null) View.GONE else View.VISIBLE, status.visibility)
+        assertEquals(resource?.let { root.context.getString(it) }.orEmpty(), status.text.toString())
+        assertEquals(View.ACCESSIBILITY_LIVE_REGION_POLITE, status.accessibilityLiveRegion)
     }
 
     @Test
@@ -403,9 +525,9 @@ class CaptureFragmentBehaviorTest {
         createWorkflow = {
             CaptureWorkflowDependencies(
                 filesRoot = testFiles,
-                location = CaptureLocationSource { locationResult },
+                location = CaptureLocationSource { locationCalls++; locationSource() },
                 recognizer = recognizer,
-                galleryImporter = CaptureGallerySource { error("No import expected") },
+                galleryImporter = CaptureGallerySource { importCalls++; error("No import expected") },
                 saver = saver
             )
         }
@@ -546,7 +668,11 @@ private class FakeCaptureTextRecognizer(
     private val started: CountDownLatch? = null,
     private val cancelled: CountDownLatch? = null
 ) : CaptureTextRecognizer {
+    var recognitionCalls = 0
+    var failure: String? = null
+
     override suspend fun recognize(originalFile: File): OcrOutcome {
+        recognitionCalls++
         started?.countDown()
         try {
             gate?.await()
@@ -554,6 +680,7 @@ private class FakeCaptureTextRecognizer(
             cancelled?.countDown()
             throw exception
         }
+        failure?.let { error(it) }
         return outcome
     }
 
@@ -562,12 +689,14 @@ private class FakeCaptureTextRecognizer(
 
 private class FakeCaptureSaver : CaptureSaver {
     var saveCalls = 0
+    var gate: CompletableDeferred<Unit>? = null
 
     override suspend fun save(
         chineseText: String,
         file: File
     ): Int {
         saveCalls++
+        gate?.await()
         return saveCalls
     }
 }

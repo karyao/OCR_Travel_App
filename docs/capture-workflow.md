@@ -17,6 +17,15 @@ TextSelectionViewModel owns selection, saving, and cleanup after capture hands o
   coroutine: a resumed collector must remove a command before executing the next one.
 - CaptureUiState is the only source of control availability. Idle and Error accept new
   operations. An initial tap before camera readiness only displays the existing message.
+- Progress is rendered inline from CaptureState, rather than queued as Toast effects.
+  Location lookup, camera readiness, capture, import, recognition, and saving each have
+  a status label; all other states hide and clear it. The label is an accessible polite
+  live region below the preview. Routine camera binding is silent.
+- Cancelling the gallery picker clears the operation and pending effects, returns to
+  Idle silently, and never starts import, OCR, location lookup, capture, or saving.
+  Capture-owned Toasts are replaced rather than queued and cancelled when opening the
+  picker, pausing, or destroying the view. Errors and location-unavailable feedback
+  remain Toast effects.
 - Operation IDs correlate permission, picker, capture, and dialog results. View generations
   reject callbacks from replaced views. Preview binding has a separate generation because
   a pause can invalidate a binding without destroying the view.
@@ -52,14 +61,22 @@ git diff --check
 ```
 
 CaptureViewModelTest exercises transitions, stale results, ordered acknowledgement,
-cancellation, and ownership using a controlled coroutine scheduler. CaptureFragmentBehaviorTest
+cancellation, and ownership using a controlled coroutine scheduler. Gallery cancellation
+checks assert no messages or new service calls, including after a previous capture;
+delayed gallery and camera work check state-based progress without progress effects.
+CaptureFragmentBehaviorTest
 uses the debug host, fake services, latches, and real Android permission/picker contracts.
 It uses isolated temporary directories and never runs real camera, GPS, OCR, or translation.
-Existing OCR and EXIF instrumentation tests remain separate.
+It also checks inline status during delayed work, clearing on completion/failure/view
+destruction, and repeated picker cancellation with service counters. ScreenLayoutTest
+checks that the status below the preview remains reachable at narrow widths and large
+font sizes. Existing OCR and EXIF instrumentation tests remain separate.
 
 Production smoke checklist: deny location on a real CameraX capture; import a Chinese image
 through the gallery, choose an OCR line, save, force-stop/relaunch, and confirm the saved text
-and original image persist. Translation may use its existing fallback when a model is unavailable.
+and original image persist. Cancel Gallery both on a fresh Capture screen and after a photo
+has completed OCR; controls should become ready with no status or cancellation warning.
+Translation may use its existing fallback when a model is unavailable.
 
 ## Text selection
 

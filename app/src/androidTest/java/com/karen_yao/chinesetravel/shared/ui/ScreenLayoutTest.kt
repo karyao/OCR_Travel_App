@@ -82,6 +82,7 @@ class ScreenLayoutTest {
                         checkBoundaries(root, name)
                         if (name == "home") checkHome(root, width, height)
                         if (name == "selection") checkSelection(root, width, height)
+                        if (name == "capture") checkCapture(root, width, height)
                         if (name == "map") {
                             val zoom = root.findViewById<View>(R.id.mapZoomControls)
                             val attribution = root.findViewById<View>(R.id.tvOsmAttribution)
@@ -177,6 +178,12 @@ class ScreenLayoutTest {
             }
             root.findViewById<View>(R.id.btnConfirmSelection).isEnabled = true
         }
+        if (screen == "capture") {
+            root.findViewById<TextView>(R.id.tvCaptureStatus).apply {
+                setText(R.string.capture_loading_image)
+                visibility = View.VISIBLE
+            }
+        }
         if (screen == "map") {
             root.findViewById<View>(R.id.mapView).visibility = View.INVISIBLE
             root.findViewById<View>(R.id.mapZoomControls).visibility = View.VISIBLE
@@ -229,6 +236,28 @@ class ScreenLayoutTest {
                 }
             }
             checkLabels(footer)
+        }
+    }
+
+    private fun checkCapture(root: View, width: Int, height: Int) {
+        val scroll = root.findViewById<NestedScrollView>(R.id.captureContent)
+        val status = root.findViewById<TextView>(R.id.tvCaptureStatus)
+        val preview = root.findViewById<View>(R.id.previewView)
+        scroll.scrollTo(0, scroll.getChildAt(0).height)
+        measure(root, width, height)
+        // Descendant coordinate conversion also subtracts the scroll view's own
+        // scroll offset; add it back when measuring its fixed viewport bounds.
+        val viewport = bounds(root, scroll).apply { offset(scroll.scrollX, scroll.scrollY) }
+        assertTrue("Capture status overlaps preview", bounds(root, status).top >= bounds(root, preview).bottom)
+        assertTrue("Capture status is obscured by controls at ${width}x$height font ${root.resources.configuration.fontScale}: " +
+            "status=${bounds(root, status)}, viewport=$viewport",
+            bounds(root, status).bottom <= viewport.bottom)
+        assertTrue("Capture status cannot be reached by scrolling", bounds(root, status).top >= viewport.top)
+        val layout = status.layout
+        assertEquals(status.text.length, layout.getLineEnd(layout.lineCount - 1))
+        for (line in 0 until layout.lineCount) {
+            assertEquals(0, layout.getEllipsisCount(line))
+            assertTrue(layout.getLineWidth(line) <= layout.width + 1)
         }
     }
 

@@ -101,10 +101,7 @@ internal class CaptureViewModel(private val services: CaptureWorkflowDependencie
             }
             is CaptureEvent.GalleryResult -> {
                 if (!matches(event.operationId, CaptureState.SelectingGalleryImage)) return
-                if (event.uri == null) {
-                    finish()
-                    emit(CaptureEffect.Message("No image selected"))
-                } else importImage(event.uri)
+                if (event.uri == null) cancelOperation() else importImage(event.uri)
             }
             is CaptureEvent.CameraReady -> {
                 mutableState.value = uiState.value.copy(cameraReady = true, isBackCamera = event.isBackCamera)
@@ -129,9 +126,8 @@ internal class CaptureViewModel(private val services: CaptureWorkflowDependencie
             is CaptureEvent.CameraSaved -> {
                 if (!matches(event.operationId, CaptureState.Capturing) || event.file != cameraDestination) return
                 cameraDestination = null
-                emit(CaptureEffect.Message(if (location != null) "Photo captured with location. Processing…"
-                    else "Photo captured without location. ${locationFeedback.orEmpty()}"))
-                recognize(event.file, "camera")
+                locationFeedback?.let { emit(CaptureEffect.Message(it)) }
+                recognize(event.file)
             }
             is CaptureEvent.CameraCaptureFailed -> {
                 if (!matches(event.operationId, CaptureState.Capturing) || event.file != cameraDestination) return
@@ -180,7 +176,6 @@ internal class CaptureViewModel(private val services: CaptureWorkflowDependencie
 
     private fun getLocation() {
         state(CaptureState.GettingLocation)
-        emit(CaptureEffect.Message("Getting location…"))
         val id = checkNotNull(operation)
         work = viewModelScope.launch {
             try {
@@ -217,7 +212,6 @@ internal class CaptureViewModel(private val services: CaptureWorkflowDependencie
             lease = ManagedImageLease(file, services.filesRoot)
             cameraDestination = file
             state(CaptureState.Capturing)
-            emit(CaptureEffect.Message("Capturing photo…"))
             emit(CaptureEffect.TakePhoto(file, location))
         } catch (error: Exception) { fail("Capture", "Capture failed: ${error.message}") }
     }
@@ -230,7 +224,7 @@ internal class CaptureViewModel(private val services: CaptureWorkflowDependencie
                 val file = services.galleryImporter.importImage(uri)
                 if (!matches(id, CaptureState.ImportingImage)) { discard(file); return@launch }
                 lease = ManagedImageLease(file, services.filesRoot)
-                recognizeInJob(file, "gallery", id)
+                recognizeInJob(file, id)
             } catch (cancelled: CancellationException) {
                 if (operation == id) cancelOperation()
                 throw cancelled
@@ -239,10 +233,10 @@ internal class CaptureViewModel(private val services: CaptureWorkflowDependencie
         }
     }
 
-    private fun recognize(file: File, source: String) {
+    private fun recognize(file: File) {
         val id = checkNotNull(operation)
         work = viewModelScope.launch {
-            try { recognizeInJob(file, source, id) }
+            try { recognizeInJob(file, id) }
             catch (cancelled: CancellationException) {
                 if (operation == id) cancelOperation()
                 throw cancelled
@@ -251,9 +245,8 @@ internal class CaptureViewModel(private val services: CaptureWorkflowDependencie
         }
     }
 
-    private suspend fun recognizeInJob(file: File, source: String, id: Long) {
+    private suspend fun recognizeInJob(file: File, id: Long) {
         state(CaptureState.RecognizingText)
-        emit(CaptureEffect.Message("Running OCR ($source)..."))
         val outcome = services.recognizer.recognize(file)
         kotlin.coroutines.coroutineContext.ensureActive()
         if (!matches(id, CaptureState.RecognizingText)) return

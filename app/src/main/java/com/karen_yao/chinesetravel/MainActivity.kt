@@ -9,6 +9,8 @@ import com.karen_yao.chinesetravel.core.repository.TravelRepositoryOwner
 import com.karen_yao.chinesetravel.features.capture.ui.CaptureDependencies
 import com.karen_yao.chinesetravel.features.capture.ui.productionCaptureDependencies
 import com.karen_yao.chinesetravel.features.welcome.ui.WelcomeFragment
+import com.karen_yao.chinesetravel.shared.ui.applyScreenInsets
+import com.karen_yao.chinesetravel.shared.ui.configureScreenWindow
 
 /**
  * MainActivity hosts a single container for fragments.
@@ -20,7 +22,9 @@ class MainActivity : AppCompatActivity(), TravelRepositoryOwner {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        configureScreenWindow()
         setContentView(R.layout.activity_main)
+        findViewById<android.view.View>(R.id.container).applyScreenInsets()
 
         supportActionBar?.hide()
         // Build Room database + Repository

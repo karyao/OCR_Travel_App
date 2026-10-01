@@ -92,7 +92,7 @@ class TutorialFragment : Fragment(R.layout.fragment_tutorial) {
         val btnNext = view.findViewById<Button>(R.id.btnNext)
         val btnGetStarted = view.findViewById<Button>(R.id.btnGetStarted)
 
-        btnPrevious.visibility = if (currentStep > 0) View.VISIBLE else View.GONE
+        btnPrevious.visibility = if (currentStep > 0) View.VISIBLE else View.INVISIBLE
         btnNext.visibility = if (currentStep < tutorialSteps.size - 1) View.VISIBLE else View.GONE
         btnGetStarted.visibility = if (currentStep == tutorialSteps.size - 1) View.VISIBLE else View.GONE
     }

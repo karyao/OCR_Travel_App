@@ -4,19 +4,15 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="8dp"
     app:cardBackgroundColor="@color/background_card"
     app:cardCornerRadius="12dp"
     app:cardElevation="2dp">
-
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:padding="16dp"
+        android:padding="@dimen/card_padding"
         android:gravity="center_vertical">
-
-        <!-- Chinese Text -->
         <TextView
             android:id="@+id/tvTextOption"
             android:layout_width="0dp"
@@ -26,9 +22,7 @@
             android:textSize="18sp"
             android:textStyle="bold"
             android:textColor="@color/text_primary"
-            android:layout_marginEnd="16dp" />
-
-        <!-- Selected Indicator -->
+            android:layout_marginEnd="@dimen/space_16" />
         <TextView
             android:id="@+id/tvSelected"
             android:layout_width="wrap_content"
@@ -38,7 +32,5 @@
             android:textColor="@color/red_primary"
             android:textStyle="bold"
             android:visibility="gone" />
-
     </LinearLayout>
-
 </com.google.android.material.card.MaterialCardView>

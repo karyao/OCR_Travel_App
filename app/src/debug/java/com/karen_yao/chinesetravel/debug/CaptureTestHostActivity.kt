@@ -15,6 +15,8 @@ import com.karen_yao.chinesetravel.features.capture.ui.CaptureDependencies
 import com.karen_yao.chinesetravel.features.capture.ui.CaptureDependenciesOwner
 import com.karen_yao.chinesetravel.features.capture.ui.CaptureFragment
 import com.karen_yao.chinesetravel.features.capture.ui.productionCaptureDependencies
+import com.karen_yao.chinesetravel.shared.ui.applyScreenInsets
+import com.karen_yao.chinesetravel.shared.ui.configureScreenWindow
 
 /** Debug-only host that lets instrumentation tests replace device-facing capture services. */
 internal class CaptureTestHostActivity : AppCompatActivity(), CaptureDependenciesOwner, TextSelectionDependenciesOwner, TravelRepositoryOwner {
@@ -22,7 +24,9 @@ internal class CaptureTestHostActivity : AppCompatActivity(), CaptureDependencie
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        configureScreenWindow()
         setContentView(R.layout.activity_main)
+        findViewById<android.view.View>(R.id.container).applyScreenInsets()
         supportActionBar?.hide()
         repository = TravelRepository(AppDatabase.getDatabase(this))
 

@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/headerLayout"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="@color/red_primary"
-    android:padding="16dp"
     android:elevation="4dp"
     android:orientation="horizontal"
-    android:gravity="center_vertical">
-
-    <!-- Back button -->
+    android:gravity="center_vertical"
+    android:paddingHorizontal="@dimen/screen_gutter"
+    android:paddingVertical="@dimen/space_8">
     <Button
         android:id="@+id/btnBack"
         android:layout_width="wrap_content"
@@ -20,43 +20,45 @@
         android:textSize="14sp"
         android:textColor="@color/white"
         android:background="@null"
-        android:padding="8dp"
-        android:layout_marginEnd="16dp"
-        android:layout_marginTop="20dp" />
-
-    <!-- Title -->
-    <TextView
-        android:id="@+id/tvHeaderTitle"
+        android:padding="@dimen/space_8"
+        android:layout_marginEnd="@dimen/space_8"
+        android:minWidth="@dimen/touch_target"
+        android:minHeight="@dimen/touch_target"
+        android:singleLine="false"
+        android:maxLines="4"
+        android:ellipsize="none" />
+    <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:layout_marginTop="16dp"
-        android:textColor="@color/white"
-        tools:text="Title" />
-
-    <!-- Optional right content (like snap count) -->
-    <TextView
-        android:id="@+id/tvHeaderRight"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textSize="14sp"
-        android:layout_marginTop="20dp"
-        android:textColor="@color/white"
-        android:visibility="gone" />
-
+        android:orientation="vertical">
+        <TextView
+            android:id="@+id/tvHeaderTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="@color/white"
+            tools:text="Title" />
+        <TextView
+            android:id="@+id/tvHeaderRight"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="14sp"
+            android:textColor="@color/white"
+            android:visibility="gone"
+            android:layout_marginTop="@dimen/space_4" />
+    </LinearLayout>
     <ImageButton
         android:id="@+id/btnHeaderOverflow"
         android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:layout_marginStart="4dp"
-        android:layout_marginTop="16dp"
+        android:layout_height="@dimen/touch_target"
+        android:layout_marginStart="@dimen/space_4"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:contentDescription="@string/home_more_actions_content_description"
-        android:padding="12dp"
+        android:padding="@dimen/space_12"
         android:src="@drawable/ic_more_vert"
         app:tint="@color/white"
-        android:visibility="gone" />
-
+        android:visibility="gone"
+        android:minHeight="@dimen/touch_target" />
 </LinearLayout>

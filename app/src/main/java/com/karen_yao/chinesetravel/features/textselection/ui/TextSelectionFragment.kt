@@ -17,6 +17,7 @@ import com.karen_yao.chinesetravel.databinding.FragmentTextSelectionBinding
 import com.karen_yao.chinesetravel.features.capture.camera.ImageProcessor
 import com.karen_yao.chinesetravel.features.capture.ui.CaptureFragment
 import com.karen_yao.chinesetravel.features.home.ui.HomeFragment
+import com.karen_yao.chinesetravel.shared.ui.CardSpacingDecoration
 import java.io.File
 import kotlinx.coroutines.launch
 
@@ -47,6 +48,7 @@ class TextSelectionFragment : Fragment(R.layout.fragment_text_selection) {
         val state = viewModel.uiState.value
         adapter = TextOptionAdapter(state.lines, viewModel::select)
         views.rvTextOptions.layoutManager = LinearLayoutManager(requireContext())
+        views.rvTextOptions.addItemDecoration(CardSpacingDecoration(resources.getDimensionPixelSize(R.dimen.list_gap)))
         views.rvTextOptions.adapter = adapter
         File(state.imagePath).takeIf { state.imagePath.isNotBlank() && it.exists() }?.let {
             ImageProcessor().loadImageWithRotation(views.ivCapturedImage, it.absolutePath)

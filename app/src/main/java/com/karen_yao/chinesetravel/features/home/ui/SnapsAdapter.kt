@@ -87,6 +87,7 @@ class SnapsViewHolder(
 
         val mapUrl = snap.googleMapsLink?.takeIf(::isValidMapUrl)
         hasMapAction = mapUrl != null
+        locationMetadata.isVisible = address != null || hasMapAction
         tvGoogleMapsLink.isVisible = hasMapAction
 
         btnDelete.setOnClickListener { onAction(SnapItemAction.Delete(snap)) }

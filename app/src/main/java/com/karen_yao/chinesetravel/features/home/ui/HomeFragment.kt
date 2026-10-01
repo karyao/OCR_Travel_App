@@ -22,6 +22,8 @@ import com.karen_yao.chinesetravel.features.capture.ui.CaptureFragment
 import com.karen_yao.chinesetravel.features.map.ui.MapFragment
 import com.karen_yao.chinesetravel.features.welcome.ui.WelcomeFragment
 import com.karen_yao.chinesetravel.shared.extensions.repo
+import com.karen_yao.chinesetravel.shared.ui.CardSpacingDecoration
+import com.karen_yao.chinesetravel.shared.ui.reserveFloatingActionSpace
 import kotlinx.coroutines.launch
 
 /** Displays the saved travel collection and forwards user actions. */
@@ -44,6 +46,9 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         setupHeader()
         setupCollection()
         setupNavigation()
+        binding.floatingActions.reserveFloatingActionSpace(
+            binding.recycler, binding.emptyStateScroll, binding.errorStateScroll
+        )
         observeHome()
     }
 
@@ -59,6 +64,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         snapsAdapter = SnapsAdapter(::handleSnapAction)
         binding.recycler.apply {
             layoutManager = LinearLayoutManager(requireContext())
+            addItemDecoration(CardSpacingDecoration(resources.getDimensionPixelSize(R.dimen.list_gap)))
             adapter = snapsAdapter
         }
     }
@@ -80,7 +86,9 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
     private fun render(state: HomeUiState) {
         binding.loadingIndicator.isVisible = state.isLoading
         binding.emptyStateLayout.isVisible = state.isEmpty
+        binding.emptyStateScroll.isVisible = state.isEmpty
         binding.errorStateLayout.isVisible = state.loadFailed
+        binding.errorStateScroll.isVisible = state.loadFailed
         binding.recycler.isVisible = !state.isLoading && !state.isEmpty && !state.loadFailed
 
         binding.headerLayout.tvHeaderRight.text = resources.getQuantityString(
@@ -101,7 +109,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
                 binding.root,
                 effect.message,
                 Snackbar.LENGTH_SHORT
-            ).show()
+            ).setAnchorView(binding.floatingActions).show()
         }
     }
 
@@ -161,7 +169,8 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
     }
 
     private fun showMapOpenError() {
-        Snackbar.make(binding.root, R.string.home_map_open_error, Snackbar.LENGTH_SHORT).show()
+        Snackbar.make(binding.root, R.string.home_map_open_error, Snackbar.LENGTH_SHORT)
+            .setAnchorView(binding.floatingActions).show()
     }
 
     private fun navigateToCapture() = navigateTo(CaptureFragment(), addToBackStack = true)

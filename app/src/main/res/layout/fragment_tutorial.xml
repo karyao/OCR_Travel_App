@@ -1,277 +1,253 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/background_beige"
-    android:fillViewport="true">
-
-    <LinearLayout
-        android:layout_width="match_parent"
+    android:background="@color/background_beige">
+    <include
+        android:id="@+id/headerLayout"
+        layout="@layout/header_common"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
-
-        <!-- Common Header -->
-        <include
-            android:id="@+id/headerLayout"
-            layout="@layout/header_common" />
-
-        <!-- Tutorial Content Card -->
-        <com.google.android.material.card.MaterialCardView
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/tutorialContent"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:clipToPadding="false"
+        android:padding="@dimen/screen_gutter"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/headerLayout"
+        app:layout_constraintBottom_toTopOf="@id/tutorialActions">
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:cardCornerRadius="20dp"
-            app:cardElevation="6dp"
-            app:cardBackgroundColor="@color/background_beige"
-            android:layout_margin="10dp"
-            android:layout_marginBottom="24dp">
-
+            android:orientation="vertical">
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="6dp"
+                app:cardBackgroundColor="@color/background_beige"
+                android:layout_marginBottom="@dimen/section_gap">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="@dimen/card_padding">
+                    <ImageView
+                        android:id="@+id/ivTutorialImage"
+                        android:layout_width="match_parent"
+                        android:layout_height="200dp"
+                        android:layout_marginBottom="@dimen/space_16"
+                        android:scaleType="fitCenter"
+                        android:background="@color/background_card"
+                        android:contentDescription="Logo" />
+                    <TextView
+                        android:id="@+id/tvTutorialTitle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Welcome to Chinese Travel!"
+                        android:textSize="22sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/text_primary"
+                        android:gravity="center"
+                        android:layout_marginBottom="@dimen/space_12" />
+                    <TextView
+                        android:id="@+id/tvTutorialDescription"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Learn how to capture, translate, and explore Chinese text during your travels."
+                        android:textSize="16sp"
+                        android:textColor="@color/text_secondary"
+                        android:lineSpacingExtra="4dp"
+                        android:gravity="center" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="24dp">
-
-                <!-- Tutorial Image -->
-                <ImageView
-                    android:id="@+id/ivTutorialImage"
-                    android:layout_width="match_parent"
-                    android:layout_height="200dp"
-                    android:layout_marginBottom="20dp"
-                    android:scaleType="fitCenter"
-                    android:background="@color/background_card"
-                    android:contentDescription="Logo" />
-
-                <!-- Tutorial Title -->
-                <TextView
-                    android:id="@+id/tvTutorialTitle"
+                android:orientation="vertical">
+                <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Welcome to Chinese Travel!"
-                    android:textSize="22sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/text_primary"
-                    android:gravity="center"
-                    android:layout_marginBottom="12dp" />
-
-                <!-- Tutorial Description -->
-                <TextView
-                    android:id="@+id/tvTutorialDescription"
+                    android:layout_marginBottom="@dimen/space_12"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="4dp"
+                    app:cardBackgroundColor="@color/background_card">
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:padding="@dimen/space_16"
+                        android:gravity="center_vertical">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="📸"
+                            android:textSize="24sp"
+                            android:layout_marginEnd="@dimen/space_16" />
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="AI-powered Chinese text recognition"
+                                android:textSize="16sp"
+                                android:textStyle="bold"
+                                android:textColor="@color/text_primary" />
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Automatically detect and extract Chinese characters"
+                                android:textSize="12sp"
+                                android:textColor="@color/text_secondary" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+                <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Learn how to capture, translate, and explore Chinese text during your travels."
-                    android:textSize="16sp"
-                    android:textColor="@color/text_secondary"
-                    android:lineSpacingExtra="4dp"
-                    android:gravity="center" />
-
+                    android:layout_marginBottom="@dimen/space_12"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="4dp"
+                    app:cardBackgroundColor="@color/background_card">
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:padding="@dimen/space_16"
+                        android:gravity="center_vertical">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="🔤"
+                            android:textSize="24sp"
+                            android:layout_marginEnd="@dimen/space_16" />
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Pinyin pronunciation and English translation"
+                                android:textSize="16sp"
+                                android:textStyle="bold"
+                                android:textColor="@color/text_primary" />
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Learn pronunciation and get instant translations"
+                                android:textSize="12sp"
+                                android:textColor="@color/text_secondary" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="4dp"
+                    app:cardBackgroundColor="@color/background_card">
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:padding="@dimen/space_16"
+                        android:gravity="center_vertical">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="📍"
+                            android:textSize="24sp"
+                            android:layout_marginEnd="@dimen/space_16" />
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Location-based travel journal"
+                                android:textSize="16sp"
+                                android:textStyle="bold"
+                                android:textColor="@color/text_primary" />
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Save locations and build your travel memories"
+                                android:textSize="12sp"
+                                android:textColor="@color/text_secondary" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
             </LinearLayout>
-
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Feature Highlights -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:layout_margin="10dp"
-            android:layout_marginBottom="32dp">
-
-            <!-- Feature 1 -->
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="4dp"
-                app:cardBackgroundColor="@color/background_card">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:padding="16dp"
-                    android:gravity="center_vertical">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="📸"
-                        android:textSize="24sp"
-                        android:layout_marginEnd="16dp" />
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="AI-powered Chinese text recognition"
-                            android:textSize="16sp"
-                            android:textStyle="bold"
-                            android:textColor="@color/text_primary" />
-
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="Automatically detect and extract Chinese characters"
-                            android:textSize="12sp"
-                            android:textColor="@color/text_secondary" />
-
-                    </LinearLayout>
-
-                </LinearLayout>
-
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- Feature 2 -->
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="4dp"
-                app:cardBackgroundColor="@color/background_card">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:padding="16dp"
-                    android:gravity="center_vertical">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="🔤"
-                        android:textSize="24sp"
-                        android:layout_marginEnd="16dp" />
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="Pinyin pronunciation and English translation"
-                            android:textSize="16sp"
-                            android:textStyle="bold"
-                            android:textColor="@color/text_primary" />
-
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="Learn pronunciation and get instant translations"
-                            android:textSize="12sp"
-                            android:textColor="@color/text_secondary" />
-
-                    </LinearLayout>
-
-                </LinearLayout>
-
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- Feature 3 -->
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="4dp"
-                app:cardBackgroundColor="@color/background_card">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:padding="16dp"
-                    android:gravity="center_vertical">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="📍"
-                        android:textSize="24sp"
-                        android:layout_marginEnd="16dp" />
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="Location-based travel journal"
-                            android:textSize="16sp"
-                            android:textStyle="bold"
-                            android:textColor="@color/text_primary" />
-
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="Save locations and build your travel memories"
-                            android:textSize="12sp"
-                            android:textColor="@color/text_secondary" />
-
-                    </LinearLayout>
-
-                </LinearLayout>
-
-            </com.google.android.material.card.MaterialCardView>
-
         </LinearLayout>
-
-        <!-- Navigation Buttons -->
-        <LinearLayout
-            android:layout_width="match_parent"
+    </androidx.core.widget.NestedScrollView>
+    <com.karen_yao.chinesetravel.shared.ui.AdaptiveActionLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:id="@+id/tutorialActions"
+        android:padding="@dimen/card_padding"
+        android:background="@color/background_beige"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent">
+        <Button
+            android:id="@+id/btnPrevious"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center">
-
-            <Button
-                android:id="@+id/btnPrevious"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
-                android:text="← Previous"
-                android:textSize="14sp"
-                android:background="@drawable/button_beige_outline"
-                android:textColor="@color/white"
-                android:layout_marginEnd="8dp"
-                android:visibility="gone" />
-
-            <Button
-                android:id="@+id/btnNext"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
-                android:text="Next →"
-                android:textSize="14sp"
-                android:background="@drawable/button_red_primary"
-                android:textColor="@color/white"
-                android:layout_marginStart="8dp" />
-
-            <Button
-                android:id="@+id/btnGetStarted"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
-                android:text="Get Started! 🚀"
-                android:textSize="14sp"
-                android:background="@drawable/button_red_primary"
-                android:textColor="@color/white"
-                android:layout_marginStart="8dp"
-                android:visibility="gone" />
-
-        </LinearLayout>
-
-    </LinearLayout>
-
-</ScrollView>
+            android:layout_weight="1"
+            android:text="← Previous"
+            android:textSize="14sp"
+            android:background="@drawable/button_beige_outline"
+            android:textColor="@color/white"
+            android:layout_marginEnd="@dimen/space_8"
+            android:visibility="invisible"
+            android:minHeight="@dimen/action_min_height"
+            android:singleLine="false"
+            android:maxLines="4"
+            android:ellipsize="none" />
+        <Button
+            android:id="@+id/btnNext"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Next →"
+            android:textSize="14sp"
+            android:background="@drawable/button_red_primary"
+            android:textColor="@color/white"
+            android:layout_marginStart="@dimen/space_8"
+            android:minHeight="@dimen/action_min_height"
+            android:singleLine="false"
+            android:maxLines="4"
+            android:ellipsize="none" />
+        <Button
+            android:id="@+id/btnGetStarted"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Get Started! 🚀"
+            android:textSize="14sp"
+            android:background="@drawable/button_red_primary"
+            android:textColor="@color/white"
+            android:layout_marginStart="@dimen/space_8"
+            android:visibility="gone"
+            android:minHeight="@dimen/action_min_height"
+            android:singleLine="false"
+            android:maxLines="4"
+            android:ellipsize="none" />
+    </com.karen_yao.chinesetravel.shared.ui.AdaptiveActionLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

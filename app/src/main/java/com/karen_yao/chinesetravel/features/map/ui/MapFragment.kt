@@ -213,6 +213,7 @@ class MapFragment : Fragment(R.layout.fragment_map) {
 
     private fun observeSnaps(view: View) {
         val emptyState = view.findViewById<LinearLayout>(R.id.emptyStateLayout)
+        val emptyScroll = view.findViewById<View>(R.id.mapEmptyScroll)
         val attribution = view.findViewById<TextView>(R.id.tvOsmAttribution)
 
         viewLifecycleOwner.lifecycleScope.launch {
@@ -221,11 +222,13 @@ class MapFragment : Fragment(R.layout.fragment_map) {
                     val map = mapView ?: return@collect
                     if (snaps.isEmpty()) {
                         emptyState.visibility = View.VISIBLE
+                        emptyScroll.visibility = View.VISIBLE
                         map.visibility = View.GONE
                         attribution.visibility = View.GONE
                         hideZoomControls()
                     } else {
                         emptyState.visibility = View.GONE
+                        emptyScroll.visibility = View.GONE
                         map.visibility = View.VISIBLE
                         attribution.visibility = View.VISIBLE
                         showZoomControls(map)

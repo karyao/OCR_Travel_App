@@ -1,31 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
-<com.google.android.material.card.MaterialCardView 
+<com.google.android.material.card.MaterialCardView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="8dp"
     app:cardCornerRadius="16dp"
     app:cardElevation="4dp"
     app:cardBackgroundColor="@color/background_card">
-
     <LinearLayout
         android:orientation="vertical"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="16dp">
-
-        <!-- Enhanced Chinese Text Header -->
+        android:padding="@dimen/card_padding">
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="12dp"
+            android:layout_marginBottom="@dimen/space_12"
             android:background="@color/accent_gold"
-            android:padding="12dp"
+            android:padding="@dimen/space_12"
             android:gravity="center_vertical"
             app:cardCornerRadius="16dp">
-
             <TextView
                 android:id="@+id/tvCn"
                 android:layout_width="0dp"
@@ -35,8 +30,6 @@
                 android:textSize="20sp"
                 android:textColor="@color/text_primary"
                 android:gravity="start" />
-
-            <!-- Enhanced Delete Button -->
             <Button
                 android:id="@+id/btnDelete"
                 android:layout_width="wrap_content"
@@ -47,79 +40,74 @@
                 android:textColor="@color/text_primary"
                 android:background="@android:color/transparent"
                 android:minWidth="44dp"
-                android:minHeight="44dp"
-                android:layout_marginStart="12dp"
-                android:padding="12dp" />
-
+                android:minHeight="@dimen/action_min_height"
+                android:layout_marginStart="@dimen/space_12"
+                android:padding="@dimen/space_12"
+                android:singleLine="false"
+                android:maxLines="4"
+                android:ellipsize="none" />
         </LinearLayout>
-
-        <!-- Pinyin -->
         <TextView
             android:id="@+id/tvPinyin"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textSize="14sp"
             android:textColor="@color/text_secondary"
-            android:layout_marginBottom="8dp"
+            android:layout_marginBottom="@dimen/space_8"
             android:fontFamily="monospace" />
-
-        <!-- Translation -->
         <TextView
             android:id="@+id/tvTranslation"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textSize="16sp"
             android:textColor="@color/text_primary"
-            android:textStyle="italic"
-            android:layout_marginBottom="8dp" />
-
-        <!-- Divider -->
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="@color/divider_light"
-            android:layout_marginVertical="8dp" />
-
-        <!-- Location Info -->
+            android:textStyle="italic" />
         <LinearLayout
-            android:id="@+id/locationRow"
+            android:id="@+id/locationMetadata"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginBottom="4dp">
-
-            <TextView
-                android:layout_width="wrap_content"
+            android:orientation="vertical">
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/divider_light"
+                android:layout_marginVertical="@dimen/space_8" />
+            <LinearLayout
+                android:id="@+id/locationRow"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:importantForAccessibility="no"
-                android:text="@string/home_location_symbol"
-                android:textSize="16sp"
-                android:layout_marginEnd="8dp" />
-
-            <TextView
-                android:id="@+id/tvAddress"
-                android:layout_width="0dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:importantForAccessibility="no"
+                    android:text="@string/home_location_symbol"
+                    android:textSize="16sp"
+                    android:layout_marginEnd="@dimen/space_8" />
+                <TextView
+                    android:id="@+id/tvAddress"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textSize="14sp"
+                    android:textColor="@color/text_secondary" />
+            </LinearLayout>
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/tvGoogleMapsLink"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
+                android:text="@string/home_open_google_maps"
                 android:textSize="14sp"
-                android:textColor="@color/text_secondary" />
-
+                android:textColor="@color/white"
+                android:textStyle="bold"
+                style="@style/Widget.ChineseTravel.Button.Outlined"
+                android:layout_marginTop="@dimen/space_12"
+                android:drawablePadding="@dimen/space_8"
+                android:minHeight="@dimen/action_min_height"
+                android:singleLine="false"
+                android:maxLines="4"
+                android:ellipsize="none" />
         </LinearLayout>
-
-        <!-- Enhanced Google Maps Link -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/tvGoogleMapsLink"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/home_open_google_maps"
-            android:textSize="14sp"
-            android:textColor="@color/white"
-            android:textStyle="bold"
-            style="@style/Widget.ChineseTravel.Button.Outlined"
-            android:layout_marginTop="12dp"
-            android:drawablePadding="8dp" />
-
     </LinearLayout>
-
 </com.google.android.material.card.MaterialCardView>

@@ -47,8 +47,8 @@ class TextSelectionFragment : Fragment(R.layout.fragment_text_selection) {
         views.rvTextOptions.layoutManager = LinearLayoutManager(requireContext())
         views.rvTextOptions.addItemDecoration(CardSpacingDecoration(resources.getDimensionPixelSize(R.dimen.list_gap)))
         views.rvTextOptions.adapter = adapter
-        File(state.imagePath).takeIf { state.imagePath.isNotBlank() && it.exists() }?.let {
-            ImagePreviewLoader().loadFile(views.ivCapturedImage, it)
+        state.imagePath.takeIf { it.isNotBlank() }?.let {
+            ImagePreviewLoader(views.ivCapturedImage, viewLifecycleOwner).loadFile(File(it))
         }
         backCallback = object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() { viewModel.cancel() }

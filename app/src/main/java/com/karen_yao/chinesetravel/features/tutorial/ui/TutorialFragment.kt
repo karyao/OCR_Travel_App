@@ -3,7 +3,6 @@ package com.karen_yao.chinesetravel.features.tutorial.ui
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
-import android.widget.ImageView
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
@@ -24,20 +23,20 @@ import com.karen_yao.chinesetravel.features.welcome.ui.WelcomeFragment
 class TutorialFragment : Fragment(R.layout.fragment_tutorial) {
 
     private val viewModel by lazy { ViewModelProvider(this)[TutorialViewModel::class.java] }
-    private val imageLoader = ImagePreviewLoader()
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
         setupHeader(view)
         setupNavigation(view)
+        val imageLoader = ImagePreviewLoader(view.findViewById(R.id.ivTutorialImage), viewLifecycleOwner)
         // Keep this per view, across collection restarts, without overriding restored scrolling.
         var renderedStepIndex: Int? = null
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.uiState.collect { state ->
                     if (renderedStepIndex != state.index) {
-                        render(view, state, resetScroll = renderedStepIndex != null)
+                        render(view, state, imageLoader, resetScroll = renderedStepIndex != null)
                         renderedStepIndex = state.index
                     }
                 }
@@ -63,10 +62,10 @@ class TutorialFragment : Fragment(R.layout.fragment_tutorial) {
         }
     }
 
-    private fun render(view: View, state: TutorialUiState, resetScroll: Boolean) {
+    private fun render(view: View, state: TutorialUiState, imageLoader: ImagePreviewLoader, resetScroll: Boolean) {
         view.findViewById<TextView>(R.id.tvTutorialTitle).setText(state.step.title)
         view.findViewById<TextView>(R.id.tvTutorialDescription).setText(state.step.description)
-        imageLoader.loadAsset(view.findViewById<ImageView>(R.id.ivTutorialImage), state.step.imageAsset)
+        imageLoader.loadAsset(state.step.imageAsset)
         view.findViewById<Button>(R.id.btnPrevious).visibility = if (state.canGoPrevious) View.VISIBLE else View.INVISIBLE
         view.findViewById<Button>(R.id.btnNext).visibility = if (state.canGoNext) View.VISIBLE else View.GONE
         view.findViewById<Button>(R.id.btnGetStarted).visibility = if (state.canGoNext) View.GONE else View.VISIBLE

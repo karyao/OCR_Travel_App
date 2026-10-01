@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.os.SystemClock
 import android.view.View
 import android.widget.Button
+import android.widget.ImageView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
 import androidx.recyclerview.widget.RecyclerView
@@ -16,6 +17,7 @@ import com.karen_yao.chinesetravel.core.workflow.CapturedPlaceSaver
 import com.karen_yao.chinesetravel.debug.CaptureTestHostActivity
 import com.karen_yao.chinesetravel.features.capture.ui.CaptureFragment
 import com.karen_yao.chinesetravel.features.home.ui.HomeFragment
+import com.karen_yao.chinesetravel.shared.ui.awaitPreviewBitmap
 import java.io.File
 import java.nio.file.Files
 import java.util.concurrent.CountDownLatch
@@ -63,6 +65,7 @@ class TextSelectionFragmentBehaviorTest {
 
     @Test fun selectionAndHighlightSurviveRotation() {
         launch().use { scenario ->
+            awaitPreviewBitmap(R.id.ivCapturedImage)
             selectSecond(scenario)
             awaitUi(scenario) { it.findViewById<Button>(R.id.btnConfirmSelection).isEnabled }
             scenario.recreate()
@@ -71,8 +74,23 @@ class TextSelectionFragmentBehaviorTest {
                 it.findViewById<Button>(R.id.btnConfirmSelection).isEnabled &&
                     row?.itemView?.findViewById<View>(R.id.tvSelected)?.visibility == View.VISIBLE
             }
+            awaitPreviewBitmap(R.id.ivCapturedImage)
             assertTrue(photo.exists())
             assertEquals(0, calls.get())
+        }
+    }
+
+    @Test fun completedPreviewSurvivesBackgroundResumeWithoutChangingThePhoto() {
+        val original = photo.readBytes()
+        launch().use { scenario ->
+            awaitPreviewBitmap(R.id.ivCapturedImage)
+            var image: android.graphics.drawable.Drawable? = null
+            scenario.onActivity { image = it.findViewById<ImageView>(R.id.ivCapturedImage).drawable }
+            scenario.moveToState(Lifecycle.State.CREATED)
+            scenario.moveToState(Lifecycle.State.RESUMED)
+            awaitPreviewBitmap(R.id.ivCapturedImage)
+            scenario.onActivity { assertSame(image, it.findViewById<ImageView>(R.id.ivCapturedImage).drawable) }
+            assertArrayEquals(original, photo.readBytes())
         }
     }
 

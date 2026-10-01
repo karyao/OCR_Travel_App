@@ -14,6 +14,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.karen_yao.chinesetravel.MainActivity
 import com.karen_yao.chinesetravel.R
 import com.karen_yao.chinesetravel.appContainer
+import com.karen_yao.chinesetravel.shared.ui.awaitPreviewBitmap
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -99,6 +100,23 @@ class TutorialFragmentBehaviorTest {
         }
     }
 
+    @Test fun rapidNavigationDisplaysTheFinalStepAndLeavingClearsThePreview() {
+        launchTutorial().use { scenario ->
+            scenario.onActivity { activity ->
+                repeat(3) { activity.findViewById<View>(R.id.btnNext).performClick() }
+            }
+            awaitTutorialLayout()
+            scenario.onActivity { activity ->
+                assertEquals(activity.getString(R.string.tutorial_location_title), activity.findViewById<TextView>(R.id.tvTutorialTitle).text)
+                assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.btnGetStarted).visibility)
+                val oldImage = activity.findViewById<ImageView>(R.id.ivTutorialImage)
+                activity.findViewById<View>(R.id.headerLayout).findViewById<View>(R.id.btnBack).performClick()
+                activity.supportFragmentManager.executePendingTransactions()
+                assertNull("Destroyed views must release their preview", oldImage.drawable)
+            }
+        }
+    }
+
     private fun launchTutorial(): ActivityScenario<MainActivity> =
         ActivityScenario.launch(MainActivity::class.java).also { scenario ->
             scenario.onActivity {
@@ -138,6 +156,7 @@ class TutorialFragmentBehaviorTest {
             assertTrue("Tutorial content must be laid out", scroll.isLaidOut)
             assertFalse("Tutorial layout must be settled", scroll.isLayoutRequested)
         }
+        awaitPreviewBitmap(R.id.ivTutorialImage)
     }
 
     private fun assertTranslationStep(activity: MainActivity) {

@@ -4,7 +4,6 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.view.MotionEvent
 import android.view.View
 import android.widget.Button
 import android.widget.TextView
@@ -16,12 +15,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.karen_yao.chinesetravel.R
-import com.google.android.material.button.MaterialButton
 import kotlinx.coroutines.launch
 import org.osmdroid.config.Configuration
-import org.osmdroid.events.MapListener
-import org.osmdroid.events.ScrollEvent
-import org.osmdroid.events.ZoomEvent
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
@@ -43,11 +38,7 @@ class MapFragment : Fragment(R.layout.fragment_map) {
     }
 
     private var mapView: MapView? = null
-    private var zoomControls: View? = null
-    private var zoomInButton: MaterialButton? = null
-    private var zoomOutButton: MaterialButton? = null
-    private var zoomMapListener: MapListener? = null
-    private var fadeZoomControlsRunnable: Runnable? = null
+    private var zoomControls: MapZoomControls? = null
 
     override fun onAttach(context: Context) {
         super.onAttach(context)
@@ -84,116 +75,13 @@ class MapFragment : Fragment(R.layout.fragment_map) {
         map.setTileSource(TileSourceFactory.MAPNIK)
         map.setMultiTouchControls(true)
         map.zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
-        setupZoomControls(view, map)
+        zoomControls = MapZoomControls.attach(view, map)
 
         // Default view: zoomed out to show all of China
         val mapController = map.controller
         mapController.setZoom(5.0)
         mapController.setCenter(GeoPoint(35.0, 105.0))
     }
-
-    private fun setupZoomControls(view: View, map: MapView) {
-        val controls = view.findViewById<View>(R.id.mapZoomControls)
-        val zoomIn = view.findViewById<MaterialButton>(R.id.btnZoomIn)
-        val zoomOut = view.findViewById<MaterialButton>(R.id.btnZoomOut)
-
-        zoomControls = controls
-        zoomInButton = zoomIn
-        zoomOutButton = zoomOut
-        fadeZoomControlsRunnable = Runnable {
-            if (zoomControls?.visibility == View.VISIBLE) {
-                zoomButtons().forEach { button ->
-                    button.animate()
-                        .alpha(ZOOM_CONTROLS_IDLE_ALPHA)
-                        .setDuration(ZOOM_CONTROLS_FADE_DURATION_MS)
-                        .start()
-                }
-            }
-        }
-
-        zoomIn.setOnClickListener {
-            map.controller.zoomIn()
-            updateZoomButtonStates(map)
-            revealZoomControls()
-        }
-        zoomOut.setOnClickListener {
-            map.controller.zoomOut()
-            updateZoomButtonStates(map)
-            revealZoomControls()
-        }
-
-        map.setOnTouchListener { _, event ->
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> revealZoomControls(scheduleFade = false)
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> scheduleZoomControlsFade()
-            }
-            false
-        }
-
-        zoomMapListener = object : MapListener {
-            override fun onScroll(event: ScrollEvent): Boolean {
-                revealZoomControls()
-                return false
-            }
-
-            override fun onZoom(event: ZoomEvent): Boolean {
-                updateZoomButtonStates(map)
-                revealZoomControls()
-                return false
-            }
-        }.also(map::addMapListener)
-
-        updateZoomButtonStates(map)
-    }
-
-    private fun updateZoomButtonStates(map: MapView) {
-        zoomInButton?.isEnabled = map.canZoomIn()
-        zoomOutButton?.isEnabled = map.canZoomOut()
-    }
-
-    private fun revealZoomControls(scheduleFade: Boolean = true) {
-        val controls = zoomControls ?: return
-        val fadeRunnable = fadeZoomControlsRunnable ?: return
-
-        controls.removeCallbacks(fadeRunnable)
-        zoomButtons().forEach { button ->
-            button.animate().cancel()
-            button.alpha = 1f
-        }
-
-        if (scheduleFade && controls.visibility == View.VISIBLE) {
-            controls.postDelayed(fadeRunnable, ZOOM_CONTROLS_FADE_DELAY_MS)
-        }
-    }
-
-    private fun scheduleZoomControlsFade() {
-        val controls = zoomControls ?: return
-        val fadeRunnable = fadeZoomControlsRunnable ?: return
-
-        controls.removeCallbacks(fadeRunnable)
-        if (controls.visibility == View.VISIBLE) {
-            controls.postDelayed(fadeRunnable, ZOOM_CONTROLS_FADE_DELAY_MS)
-        }
-    }
-
-    private fun hideZoomControls() {
-        val controls = zoomControls ?: return
-        fadeZoomControlsRunnable?.let(controls::removeCallbacks)
-        zoomButtons().forEach { button ->
-            button.animate().cancel()
-            button.alpha = 1f
-        }
-        controls.visibility = View.GONE
-    }
-
-    private fun showZoomControls(map: MapView) {
-        zoomControls?.visibility = View.VISIBLE
-        updateZoomButtonStates(map)
-        revealZoomControls()
-    }
-
-    private fun zoomButtons(): List<MaterialButton> =
-        listOfNotNull(zoomInButton, zoomOutButton)
 
     private fun setupAttribution(view: View) {
         view.findViewById<TextView>(R.id.tvOsmAttribution).setOnClickListener {
@@ -236,7 +124,7 @@ class MapFragment : Fragment(R.layout.fragment_map) {
         }
         map.visibility = if (hasPins) View.VISIBLE else View.GONE
         view.findViewById<View>(R.id.tvOsmAttribution).visibility = if (hasPins) View.VISIBLE else View.GONE
-        if (hasPins) showZoomControls(map) else hideZoomControls()
+        if (hasPins) zoomControls?.show() else zoomControls?.hide()
         placeMarkers(map, state.pins)
     }
 
@@ -282,25 +170,10 @@ class MapFragment : Fragment(R.layout.fragment_map) {
 
     override fun onDestroyView() {
         val map = mapView
-        map?.setOnTouchListener(null)
-        zoomMapListener?.let { map?.removeMapListener(it) }
-        zoomControls?.let { controls ->
-            fadeZoomControlsRunnable?.let(controls::removeCallbacks)
-        }
-        zoomButtons().forEach { it.animate().cancel() }
-        zoomMapListener = null
-        fadeZoomControlsRunnable = null
-        zoomInButton = null
-        zoomOutButton = null
+        zoomControls?.dispose()
         zoomControls = null
         map?.onDetach()
         mapView = null
         super.onDestroyView()
-    }
-
-    private companion object {
-        const val ZOOM_CONTROLS_FADE_DELAY_MS = 2_000L
-        const val ZOOM_CONTROLS_FADE_DURATION_MS = 250L
-        const val ZOOM_CONTROLS_IDLE_ALPHA = 0.4f
     }
 }

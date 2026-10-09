@@ -35,7 +35,7 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
         ViewModelProvider(this, CaptureViewModelFactory(dependencies.createWorkflow))[CaptureViewModel::class.java]
     }
     private var generation = 0L
-    private var cameraBinding = 0L
+    private var cameraSession: CaptureCameraSession? = null
     private var cameraPermissionGeneration: Long? = null
     private var cameraPermissionRequested = false
     private var locationRequest: CaptureEffectEnvelope? = null
@@ -56,7 +56,7 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
             cameraPermissionGeneration = null
             if (requestedGeneration == generation && view != null) {
                 if (granted) {
-                    if (isResumed) bindCamera()
+                    cameraSession?.start()
                 } else send(CaptureEvent.CameraFailed("Camera permission is required to take photos"))
             }
         }
@@ -74,6 +74,14 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
         super.onViewCreated(view, savedInstanceState)
         generation = viewModel.attachView()
         cameraPermissionRequested = false
+        val viewGeneration = generation
+        cameraSession = CaptureCameraSession(
+            dependencies.camera, dependencies.permissions, requireContext(),
+            view.findViewById(R.id.previewView), viewLifecycleOwner
+        ) { event ->
+            viewModel.onEvent(viewGeneration, event)
+            if (this.view != null) render(viewModel.uiState.value)
+        }
         val header = view.findViewById<View>(R.id.headerLayout)
         header.findViewById<TextView>(R.id.tvHeaderTitle).text = "📸 Capture Chinese Text"
         header.findViewById<TextView>(R.id.tvHeaderRight).visibility = View.GONE
@@ -106,23 +114,23 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
     override fun onResume() {
         super.onResume()
         send(CaptureEvent.Resumed)
+        cameraSession?.resume()
         if (!dependencies.permissions.hasCameraPermission(requireContext()) && !cameraPermissionRequested) {
             cameraPermissionRequested = true
             cameraPermissionGeneration = generation
             cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-        } else bindCamera()
+        }
     }
 
     override fun onPause() {
-        cameraBinding++
         cancelToast()
-        send(CaptureEvent.Paused)
-        dependencies.camera.stop()
+        cameraSession?.pause { send(CaptureEvent.Paused) } ?: send(CaptureEvent.Paused)
         super.onPause()
     }
 
     override fun onDestroyView() {
-        cameraBinding++
+        cameraSession?.dispose()
+        cameraSession = null
         cancelToast()
         send(CaptureEvent.ViewDestroyed)
         noTextDialog?.setOnDismissListener(null)
@@ -157,29 +165,6 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
             if (text.toString() != label) text = label
             visibility = if (progressText == null) View.GONE else View.VISIBLE
         }
-    }
-
-    private fun bindCamera(switch: Boolean = false) {
-        if (!isResumed || !dependencies.permissions.hasCameraPermission(requireContext())) return
-        val preview = view?.findViewById<PreviewView>(R.id.previewView) ?: return
-        if (!dependencies.permissions.isCameraAvailable(requireContext())) {
-            send(CaptureEvent.CameraFailed("Camera not available on this device"))
-            return
-        }
-        val viewId = generation
-        val bindingId = ++cameraBinding
-        fun isCurrent() = viewId == generation && bindingId == cameraBinding && view != null && isResumed
-        val onError: (String) -> Unit = { if (isCurrent()) send(CaptureEvent.CameraFailed(it)) }
-        val onReady: () -> Unit = {
-            if (isCurrent()) {
-                val back = dependencies.camera.isBackCamera()
-                send(CaptureEvent.CameraReady(back, if (switch)
-                    "Switched to ${if (back) "back" else "front"} camera"
-                    else null))
-            }
-        }
-        if (switch) dependencies.camera.switch(requireContext(), preview, viewLifecycleOwner, onError, onReady)
-        else dependencies.camera.start(requireContext(), preview, viewLifecycleOwner, onError, onReady)
     }
 
     /** Main-thread execution and immediate acknowledgement prevent replay on collector restart. */
@@ -218,8 +203,8 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
                 galleryRequest = command
                 pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
             }
-            CaptureEffect.RestartCamera -> bindCamera()
-            CaptureEffect.SwitchCamera -> bindCamera(switch = true)
+            CaptureEffect.RestartCamera -> cameraSession?.start()
+            CaptureEffect.SwitchCamera -> cameraSession?.switchCamera()
             is CaptureEffect.TakePhoto -> {
                 val model = viewModel
                 val id = checkNotNull(command.operationId)

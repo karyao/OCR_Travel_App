@@ -20,6 +20,7 @@ import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.osmdroid.views.MapView
 
 @RunWith(AndroidJUnit4::class)
 class MapFragmentBehaviorTest {
@@ -87,6 +88,8 @@ class MapFragmentBehaviorTest {
             lateinit var oldZoomIn: View
             lateinit var oldZoomOut: View
             scenario.onActivity {
+                // Start a fresh fade deadline immediately before destroying this view.
+                it.findViewById<MapView>(R.id.mapView).controller.setZoom(16.0)
                 oldZoomIn = it.findViewById(R.id.btnZoomIn)
                 oldZoomOut = it.findViewById(R.id.btnZoomOut)
                 assertEquals(1f, oldZoomIn.alpha, 0f)

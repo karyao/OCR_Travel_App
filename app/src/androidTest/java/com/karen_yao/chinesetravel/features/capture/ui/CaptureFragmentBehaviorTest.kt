@@ -12,6 +12,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -41,6 +42,8 @@ import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertNotSame
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -54,6 +57,7 @@ class CaptureFragmentBehaviorTest {
     private lateinit var saver: FakeCaptureSaver
     private lateinit var testFiles: File
     private var locationPermissionChanged = false
+    private var cameraPermissionChanged = false
     private var locationCalls = 0
     private var importCalls = 0
     private var locationSource: suspend () -> CaptureLocationResult = { locationResult }
@@ -81,6 +85,7 @@ class CaptureFragmentBehaviorTest {
     fun tearDown() {
         CaptureTestHostActivity.dependenciesFactory = null
         if (locationPermissionChanged) resetLocationPermission()
+        if (cameraPermissionChanged) resetPermissions(listOf(Manifest.permission.CAMERA))
         testFiles.deleteRecursively()
     }
 
@@ -121,6 +126,93 @@ class CaptureFragmentBehaviorTest {
 
                 assertEquals(1, camera.captureRequests)
                 assertNull(camera.lastLocation)
+            }
+        }
+    }
+
+    @Test
+    fun cameraPermissionApprovalBindsAfterPermissionDialog() {
+        cameraPermissionChanged = true
+        resetPermissions(listOf(Manifest.permission.CAMERA))
+        permissions.readCameraPermissionFromSystem = true
+
+        launch().use { scenario ->
+            val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+            val allowButton = device.wait(
+                Until.findObject(By.res("com.android.permissioncontroller:id/permission_allow_foreground_only_button")),
+                UI_TIMEOUT_MILLIS
+            ) ?: device.wait(
+                Until.findObject(By.res("com.android.permissioncontroller:id/permission_allow_button")),
+                UI_TIMEOUT_MILLIS
+            )
+            assertTrue("Camera permission allow button was not shown", allowButton != null)
+            assertEquals(0, camera.startCalls)
+            allowButton?.click()
+            assertTrue("Camera did not bind after approval",
+                camera.started.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+            scenario.onActivity { activity ->
+                activity.findViewById<View>(R.id.btnShoot).performClick()
+                assertEquals(1, camera.captureRequests)
+            }
+        }
+    }
+
+    @Test
+    fun recreatedViewOnSameFragmentRejectsOldCameraReadinessAndErrors() {
+        camera.delayAfterFirstStart = true
+        launch().use { scenario ->
+            scenario.onActivity { activity ->
+                val manager = activity.supportFragmentManager
+                val fragment = manager.findFragmentById(R.id.container) as CaptureFragment
+                val oldView = fragment.requireView()
+                val oldBinding = camera.bindings.single()
+                manager.beginTransaction().detach(fragment).commitNow()
+                manager.beginTransaction().attach(fragment).commitNow()
+                assertSame(fragment, manager.findFragmentById(R.id.container))
+                assertNotSame(oldView, fragment.requireView())
+                assertEquals(2, camera.startCalls)
+                val model = ViewModelProvider(fragment)[CaptureViewModel::class.java]
+
+                oldBinding.ready()
+                oldBinding.error("old view failed")
+                assertFalse(model.uiState.value.cameraReady)
+                assertEquals(CaptureState.Idle, model.uiState.value.state)
+                camera.releaseReadiness()
+                assertTrue(model.uiState.value.cameraReady)
+                oldBinding.error("old view failed after new camera became ready")
+                assertTrue(model.uiState.value.cameraReady)
+                activity.findViewById<View>(R.id.btnShoot).performClick()
+                assertEquals(1, camera.captureRequests)
+            }
+        }
+    }
+
+    @Test
+    fun pauseCancelsCaptureBeforeSynchronousCameraStopResult() {
+        launch().use { scenario ->
+            lateinit var file: File
+            scenario.onActivity { activity ->
+                activity.findViewById<View>(R.id.btnShoot).performClick()
+                assertEquals(1, camera.captureRequests)
+                file = checkNotNull(camera.lastFile)
+                camera.onStop = {
+                    // A camera can complete an abandoned write during shutdown.
+                    file.writeBytes(byteArrayOf(1, 2, 3))
+                    checkNotNull(camera.onSaved).invoke()
+                    camera.bindings.last().ready()
+                    camera.bindings.last().error("stopped")
+                }
+            }
+            scenario.moveToState(Lifecycle.State.CREATED)
+            scenario.onActivity { activity ->
+                val fragment = activity.supportFragmentManager.findFragmentById(R.id.container)!!
+                val model = ViewModelProvider(fragment)[CaptureViewModel::class.java]
+                assertFalse(file.exists())
+                assertFalse(model.uiState.value.cameraReady)
+                assertEquals(CaptureState.Idle, model.uiState.value.state)
+                assertEquals(0, recognizer.recognitionCalls)
+                camera.onStop = {}
             }
         }
     }
@@ -541,13 +633,17 @@ class CaptureFragmentBehaviorTest {
     }
 
     private fun resetLocationPermission() {
+        resetPermissions(listOf(
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ))
+    }
+
+    private fun resetPermissions(permissions: List<String>) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val packageName = instrumentation.targetContext.packageName
         val uiAutomation = instrumentation.uiAutomation
-        listOf(
-            Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.ACCESS_COARSE_LOCATION
-        ).forEach { permission ->
+        permissions.forEach { permission ->
             runCatching { uiAutomation.revokeRuntimePermission(packageName, permission) }
             listOf("user-set", "user-fixed").forEach { flag ->
                 uiAutomation.executeShellCommand(
@@ -571,8 +667,12 @@ class CaptureFragmentBehaviorTest {
 
 private class FakeCapturePermissionChecker : CapturePermissionChecker {
     var readLocationPermissionFromSystem = false
+    var readCameraPermissionFromSystem = false
 
-    override fun hasCameraPermission(context: Context) = true
+    override fun hasCameraPermission(context: Context) =
+        !readCameraPermissionFromSystem ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+                PackageManager.PERMISSION_GRANTED
     override fun hasLocationPermission(context: Context): Boolean =
         !readLocationPermissionFromSystem ||
             ContextCompat.checkSelfPermission(
@@ -588,16 +688,20 @@ private class FakeCapturePermissionChecker : CapturePermissionChecker {
 }
 
 private class FakeCaptureCamera : CaptureCamera {
+    data class Binding(val error: (String) -> Unit, val ready: () -> Unit)
+    val bindings = mutableListOf<Binding>()
     @Volatile var captureRequests = 0
     @Volatile var lastLocation: Location? = null
     var lastFile: File? = null
     var completeImmediately = false
-    var startCalls = 0
+    @Volatile var startCalls = 0
     var stopCalls = 0
     var delayAfterFirstStart = false
-    private var pendingReady: (() -> Unit)? = null
+    var onStop: () -> Unit = {}
+    var onSaved: (() -> Unit)? = null
     private var pendingCapture: (() -> Unit)? = null
     val captureRequested = CountDownLatch(1)
+    val started = CountDownLatch(1)
     private var ready = false
 
     override fun start(
@@ -608,7 +712,8 @@ private class FakeCaptureCamera : CaptureCamera {
         onReady: () -> Unit
     ) {
         startCalls++
-        pendingReady = onReady
+        bindings += Binding(onError, onReady)
+        started.countDown()
         if (delayAfterFirstStart && startCalls > 1) return
         ready = true
         onReady()
@@ -620,7 +725,10 @@ private class FakeCaptureCamera : CaptureCamera {
         lifecycleOwner: LifecycleOwner,
         onError: (String) -> Unit,
         onReady: () -> Unit
-    ) = onReady()
+    ) {
+        bindings += Binding(onError, onReady)
+        onReady()
+    }
 
     override fun takePhoto(
         file: File,
@@ -633,6 +741,7 @@ private class FakeCaptureCamera : CaptureCamera {
         lastLocation = location
         lastFile = file
         captureRequested.countDown()
+        this.onSaved = onSaved
         pendingCapture = {
             file.parentFile?.mkdirs()
             file.writeBytes(byteArrayOf(1, 2, 3))
@@ -648,12 +757,13 @@ private class FakeCaptureCamera : CaptureCamera {
 
     fun releaseReadiness() {
         ready = true
-        pendingReady?.invoke()
+        bindings.lastOrNull()?.ready?.invoke()
     }
 
     override fun stop() {
         stopCalls++
         ready = false
+        onStop()
     }
 
     override fun isReady() = ready

@@ -18,14 +18,11 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.karen_yao.chinesetravel.R
-import com.karen_yao.chinesetravel.features.home.ui.HomeFragment
-import com.karen_yao.chinesetravel.features.textselection.ui.TextSelectionFragment
+import com.karen_yao.chinesetravel.navigation.travelNavigator
 import kotlinx.coroutines.launch
 
 /** Android integration only; CaptureViewModel owns the workflow and image lifetime. */
 class CaptureFragment : Fragment(R.layout.fragment_capture) {
-    internal companion object { const val BACK_STACK_NAME = "capture" }
-
     private val dependencies by lazy {
         val host = requireActivity() as? CaptureDependenciesOwner
             ?: error("CaptureFragment host must provide capture dependencies")
@@ -86,7 +83,7 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
         header.findViewById<TextView>(R.id.tvHeaderTitle).text = "📸 Capture Chinese Text"
         header.findViewById<TextView>(R.id.tvHeaderRight).visibility = View.GONE
         header.findViewById<Button>(R.id.btnBack).setOnClickListener {
-            requireActivity().onBackPressedDispatcher.onBackPressed()
+            travelNavigator.goBack()
         }
         view.findViewById<Button>(R.id.btnShoot).setOnClickListener {
             send(CaptureEvent.CaptureTapped(dependencies.permissions.hasLocationPermission(requireContext())))
@@ -175,7 +172,7 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
             val effect = envelope.effect
             if (effect is CaptureEffect.OpenTextSelection || effect == CaptureEffect.NavigateBack ||
                 effect == CaptureEffect.NavigateHome) {
-                if (parentFragmentManager.isStateSaved) return
+                if (travelNavigator.isStateSaved) return
             }
             try {
                 execute(envelope)
@@ -213,14 +210,12 @@ class CaptureFragment : Fragment(R.layout.fragment_capture) {
                     onSaved = { model.onEvent(command.viewGeneration, CaptureEvent.CameraSaved(id, effect.file)) },
                     onError = { model.onEvent(command.viewGeneration, CaptureEvent.CameraCaptureFailed(id, effect.file, it)) })
             }
-            is CaptureEffect.OpenTextSelection -> parentFragmentManager.beginTransaction()
-                .replace(R.id.container, TextSelectionFragment.newInstance(
-                    effect.lines, effect.file.absolutePath, "", deleteImageIfUnsaved = true
-                )).addToBackStack(null).commit()
+            is CaptureEffect.OpenTextSelection -> travelNavigator.openTextSelection(
+                effect.lines, effect.file.absolutePath, "", deleteImageIfUnsaved = true
+            )
             CaptureEffect.ShowNoTextDialog -> showNoTextDialog(command)
-            CaptureEffect.NavigateBack -> requireActivity().onBackPressedDispatcher.onBackPressed()
-            CaptureEffect.NavigateHome -> parentFragmentManager.beginTransaction()
-                .replace(R.id.container, HomeFragment()).commit()
+            CaptureEffect.NavigateBack -> travelNavigator.goBack()
+            CaptureEffect.NavigateHome -> travelNavigator.openHome()
         }
     }
 

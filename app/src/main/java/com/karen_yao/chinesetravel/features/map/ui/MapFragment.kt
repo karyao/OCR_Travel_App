@@ -15,6 +15,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.karen_yao.chinesetravel.R
+import com.karen_yao.chinesetravel.navigation.travelNavigator
 import kotlinx.coroutines.launch
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -65,7 +66,7 @@ class MapFragment : Fragment(R.layout.fragment_map) {
         rightText.visibility = View.GONE
 
         backButton.setOnClickListener {
-            parentFragmentManager.popBackStack()
+            travelNavigator.closeMap()
         }
     }
 

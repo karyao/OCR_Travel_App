@@ -13,8 +13,7 @@ import androidx.core.widget.NestedScrollView
 import com.karen_yao.chinesetravel.shared.ui.ImagePreviewLoader
 import kotlinx.coroutines.launch
 import com.karen_yao.chinesetravel.R
-import com.karen_yao.chinesetravel.features.home.ui.HomeFragment
-import com.karen_yao.chinesetravel.features.welcome.ui.WelcomeFragment
+import com.karen_yao.chinesetravel.navigation.travelNavigator
 
 /**
  * TutorialFragment provides a step-by-step guide on how to use the Chinese Travel app.
@@ -56,9 +55,7 @@ class TutorialFragment : Fragment(R.layout.fragment_tutorial) {
         
         // Set up back button
         backButton.setOnClickListener {
-            parentFragmentManager.beginTransaction()
-                .replace(R.id.container, WelcomeFragment())
-                .commit()
+            travelNavigator.openWelcome()
         }
     }
 
@@ -79,10 +76,7 @@ class TutorialFragment : Fragment(R.layout.fragment_tutorial) {
         view.findViewById<Button>(R.id.btnNext).setOnClickListener { viewModel.next() }
 
         view.findViewById<Button>(R.id.btnGetStarted).setOnClickListener {
-            // Navigate to HomeFragment
-            parentFragmentManager.beginTransaction()
-                .replace(R.id.container, HomeFragment())
-                .commit()
+            travelNavigator.openHome()
         }
     }
 }

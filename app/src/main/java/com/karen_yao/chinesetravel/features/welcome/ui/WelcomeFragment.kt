@@ -5,8 +5,7 @@ import android.view.View
 import android.widget.Button
 import androidx.fragment.app.Fragment
 import com.karen_yao.chinesetravel.R
-import com.karen_yao.chinesetravel.features.home.ui.HomeFragment
-import com.karen_yao.chinesetravel.features.tutorial.ui.TutorialFragment
+import com.karen_yao.chinesetravel.navigation.travelNavigator
 
 /**
  * Welcome screen fragment with app introduction and navigation.
@@ -23,25 +22,13 @@ class WelcomeFragment : Fragment(R.layout.fragment_welcome) {
     private fun setupWelcomeButtons(view: View) {
         // Get started button - navigates to main app
         view.findViewById<Button>(R.id.btnGetStarted).setOnClickListener {
-            navigateToHome()
+            travelNavigator.openHome()
         }
         
         // Learn more button - could show app features
         view.findViewById<Button>(R.id.btnLearnMore).setOnClickListener {
-            showLearnMore()
+            travelNavigator.openTutorial()
         }
     }
     
-    private fun navigateToHome() {
-        parentFragmentManager.beginTransaction()
-            .replace(R.id.container, HomeFragment())
-            .commit()
-    }
-    
-    private fun showLearnMore() {
-        // Navigate to tutorial to show users how to use the app
-        parentFragmentManager.beginTransaction()
-            .replace(R.id.container, TutorialFragment())
-            .commit()
-    }
 }

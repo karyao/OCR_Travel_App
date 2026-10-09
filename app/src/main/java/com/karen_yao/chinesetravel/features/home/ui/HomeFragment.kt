@@ -18,9 +18,7 @@ import com.google.android.material.snackbar.Snackbar
 import com.karen_yao.chinesetravel.R
 import com.karen_yao.chinesetravel.core.database.entities.PlaceSnap
 import com.karen_yao.chinesetravel.databinding.FragmentHomeBinding
-import com.karen_yao.chinesetravel.features.capture.ui.CaptureFragment
-import com.karen_yao.chinesetravel.features.map.ui.MapFragment
-import com.karen_yao.chinesetravel.features.welcome.ui.WelcomeFragment
+import com.karen_yao.chinesetravel.navigation.travelNavigator
 import com.karen_yao.chinesetravel.shared.ui.CardSpacingDecoration
 import com.karen_yao.chinesetravel.shared.ui.reserveFloatingActionSpace
 import kotlinx.coroutines.launch
@@ -57,7 +55,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         tvHeaderTitle.setText(R.string.home_title)
         tvHeaderRight.isVisible = true
         btnHeaderOverflow.isVisible = true
-        btnBack.setOnClickListener { navigateToWelcome() }
+        btnBack.setOnClickListener { travelNavigator.openWelcome() }
         btnHeaderOverflow.setOnClickListener(::showOverflowMenu)
     }
 
@@ -71,8 +69,8 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
     }
 
     private fun setupNavigation() {
-        binding.fabCapture.setOnClickListener { navigateToCapture() }
-        binding.fabMap.setOnClickListener { navigateToMap() }
+        binding.fabCapture.setOnClickListener { travelNavigator.openCapture() }
+        binding.fabMap.setOnClickListener { travelNavigator.openMap() }
     }
 
     private fun observeHome() {
@@ -172,21 +170,6 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
     private fun showMapOpenError() {
         Snackbar.make(binding.root, R.string.home_map_open_error, Snackbar.LENGTH_SHORT)
             .setAnchorView(binding.floatingActions).show()
-    }
-
-    private fun navigateToCapture() = navigateTo(CaptureFragment(), addToBackStack = true)
-
-    private fun navigateToMap() = navigateTo(MapFragment(), addToBackStack = true)
-
-    private fun navigateToWelcome() = navigateTo(WelcomeFragment(), addToBackStack = false)
-
-    private fun navigateTo(destination: Fragment, addToBackStack: Boolean) {
-        parentFragmentManager.beginTransaction().apply {
-            replace(R.id.container, destination)
-            if (addToBackStack) addToBackStack(
-                if (destination is CaptureFragment) CaptureFragment.BACK_STACK_NAME else null
-            )
-        }.commit()
     }
 
     override fun onDestroyView() {

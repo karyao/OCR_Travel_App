@@ -15,7 +15,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.karen_yao.chinesetravel.R
 import com.karen_yao.chinesetravel.core.workflow.CapturedPlaceSaver
 import com.karen_yao.chinesetravel.debug.CaptureTestHostActivity
-import com.karen_yao.chinesetravel.features.capture.ui.CaptureFragment
+import com.karen_yao.chinesetravel.navigation.TravelNavigator
 import com.karen_yao.chinesetravel.features.home.ui.HomeFragment
 import com.karen_yao.chinesetravel.shared.ui.awaitPreviewBitmap
 import java.io.File
@@ -230,7 +230,7 @@ class TextSelectionFragmentBehaviorTest {
             scenario.onActivity {
                 val manager = it.supportFragmentManager
                 if (withHomeStack) manager.beginTransaction().setReorderingAllowed(true)
-                    .replace(R.id.container, Fragment()).addToBackStack(if (namedCapture) CaptureFragment.BACK_STACK_NAME else null).commit()
+                    .replace(R.id.container, Fragment()).addToBackStack(if (namedCapture) TravelNavigator.CAPTURE_BACK_STACK_NAME else null).commit()
                 manager.beginTransaction().setReorderingAllowed(true)
                     .replace(R.id.container, TextSelectionFragment.newInstance(
                         listOf("八邑酒楼", "永庆坊"), photo.absolutePath, "", owned

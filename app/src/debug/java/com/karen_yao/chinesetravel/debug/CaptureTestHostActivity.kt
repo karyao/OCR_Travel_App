@@ -17,11 +17,18 @@ import com.karen_yao.chinesetravel.features.home.ui.HomeDependenciesOwner
 import com.karen_yao.chinesetravel.features.home.ui.HomeViewModelFactory
 import com.karen_yao.chinesetravel.features.map.ui.MapDependenciesOwner
 import com.karen_yao.chinesetravel.features.map.ui.MapViewModelFactory
+import com.karen_yao.chinesetravel.navigation.TravelNavigator
+import com.karen_yao.chinesetravel.navigation.TravelNavigatorOwner
 import com.karen_yao.chinesetravel.shared.ui.applyScreenInsets
 import com.karen_yao.chinesetravel.shared.ui.configureScreenWindow
 
 /** Debug-only host that lets instrumentation tests replace device-facing capture services. */
-internal class CaptureTestHostActivity : AppCompatActivity(), CaptureDependenciesOwner, TextSelectionDependenciesOwner, HomeDependenciesOwner, MapDependenciesOwner {
+internal class CaptureTestHostActivity : AppCompatActivity(), CaptureDependenciesOwner, TextSelectionDependenciesOwner,
+    HomeDependenciesOwner, MapDependenciesOwner, TravelNavigatorOwner {
+    override val travelNavigator by lazy {
+        TravelNavigator(supportFragmentManager, onBackPressedDispatcher)
+    }
+
     lateinit var repository: TravelRepository
         private set
 
